@@ -1,0 +1,38 @@
+name: release
+# Push a tag such as v0.1.0 to build the installer and the portable exe and attach them to a GitHub release.
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod }
+      - run: go test ./...
+      - name: Build exe (no console window)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          go build -trimpath -ldflags "-s -w -H=windowsgui" -o dist/librepatchdesktop.exe ./cmd/librepatchdesktop
+          Copy-Item dist/librepatchdesktop.exe dist/LibrePatchDesktop-Portable.exe
+      - name: Build installer
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          $v = "${{ github.ref_name }}".TrimStart("v")
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" installer\librepatchdesktop.iss
+      - name: Checksums
+        shell: pwsh
+        run: |
+          Remove-Item dist/librepatchdesktop.exe
+          Get-FileHash dist/*.exe -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } | Set-Content dist/SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/LibrePatchDesktop-Setup.exe
+            dist/LibrePatchDesktop-Portable.exe
+            dist/SHA256SUMS.txt

@@ -30,6 +30,8 @@ type Backend interface {
 type Server struct {
 	b     Backend
 	Token string
+	// Quit, if set, is called when the page's Quit button is pressed.
+	Quit func()
 
 	mu      sync.Mutex
 	items   []updater.Item
@@ -75,6 +77,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/apps", s.handleApps)
 	mux.HandleFunc("POST /api/refresh", s.handleRefresh)
 	mux.HandleFunc("POST /api/update", s.handleUpdate)
+	mux.HandleFunc("POST /api/quit", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, map[string]bool{"ok": true})
+		if s.Quit != nil {
+			go s.Quit()
+		}
+	})
 	return s.guard(mux)
 }
 

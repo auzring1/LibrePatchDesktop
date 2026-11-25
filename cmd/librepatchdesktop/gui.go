@@ -39,15 +39,21 @@ func (b *backend) Install(ctx context.Context, it updater.Item) error {
 	return updater.Install(ctx, it.Source, *it.Entry, nil)
 }
 
-// runGUI serves the window on a random loopback port and opens it in the default browser.
+// guiAddr is the fixed local address of the window. A second launch finds it taken and only reopens the page.
+const guiAddr = "127.0.0.1:47318"
+
+// runGUI serves the window on a loopback port and opens it in the default browser. If the app is already
+// running (the port is taken), it only opens the existing window.
 func runGUI(scanner inventory.Scanner, catPath string, noWinget bool) error {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	url := "http://" + guiAddr + "/"
+	ln, err := net.Listen("tcp", guiAddr)
 	if err != nil {
-		return err
+		openBrowser(url)
+		return nil
 	}
 	s := ui.New(&backend{scanner: scanner, catPath: catPath, noWinget: noWinget})
-	url := fmt.Sprintf("http://%s/", ln.Addr())
-	fmt.Println("LibrePatchDesktop is running at", url, "(close this window to quit)")
+	s.Quit = func() { os.Exit(0) }
+	fmt.Println("LibrePatchDesktop is running at", url)
 	openBrowser(url)
 	return http.Serve(ln, s.Handler())
 }

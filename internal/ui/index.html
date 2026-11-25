@@ -17,7 +17,7 @@ th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line)}th{co
 #msg{color:var(--mut)}
 </style></head><body><main>
 <h1>LibrePatchDesktop</h1><p class="sub">Keeps your applications up to date. Windows itself is updated in Settings &gt; Windows Update.</p>
-<div class="bar"><button id="all" disabled>Update all</button><button id="re" class="sec">Check again</button><span id="msg"></span></div>
+<div class="bar"><button id="all" disabled>Update all</button><button id="re" class="sec">Check again</button><button id="q" class="sec">Quit</button><span id="msg"></span></div>
 <table><thead><tr><th>Application</th><th>Installed</th><th>Latest</th><th></th></tr></thead><tbody id="rows"></tbody></table>
 </main><script>
 const T="__TOKEN__";
@@ -40,6 +40,6 @@ async function load(){
   $("msg").textContent=d.error?"Error: "+d.error:d.loading?"Checking your applications…":d.busy?"Updating…":d.rows.length?"":"No supported applications found yet.";
 }
 async function run(keys){try{await api("/api/update","POST",{keys})}catch(e){$("msg").textContent=e.message}load()}
-$("all").onclick=()=>run([]);$("re").onclick=async()=>{await api("/api/refresh","POST");load()};
+$("q").onclick=async()=>{try{await api("/api/quit","POST")}catch(e){}document.body.textContent="LibrePatchDesktop has closed. You can close this tab."};$("all").onclick=()=>run([]);$("re").onclick=async()=>{await api("/api/refresh","POST");load()};
 setInterval(()=>load().catch(()=>{}),1000);api("/api/refresh","POST").then(load);
 </script></body></html>

@@ -4,7 +4,10 @@ A free, open source application updater for Windows home PCs, in the spirit of P
 It finds the applications installed on your PC, shows which have updates, and updates them.
 
 **Scope:** applications only. No Windows Update features (use Settings > Windows Update). LibrePatchDesktop itself ships as a plain portable exe, no installer; the apps it updates may use exe, MSI or MSIX/Appx installers.
-Shipped as a single portable `.exe`, no installer.
+Downloads (from GitHub Releases, built when a `v*` tag is pushed): `LibrePatchDesktop-Setup.exe`, a normal
+installer (Start menu entry, optional desktop shortcut, uninstaller, Add/Remove Programs entry), and
+`LibrePatchDesktop-Portable.exe` for running without installing. `SHA256SUMS.txt` lists their checksums.
+Releases are not code-signed yet, so Windows SmartScreen may warn.
 
 ## Status
 
