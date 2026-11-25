@@ -60,7 +60,7 @@ func Check(apps []inventory.App, sources []catalog.Source) []Item {
 
 // Install resolves the download details, downloads the installer, verifies its SHA-256 and runs it
 // silently. Nothing is executed unless the hash matches the one the source gave.
-func Install(ctx context.Context, src catalog.Source, e catalog.Entry, run func(path string, args []string) error) error {
+func Install(ctx context.Context, src catalog.Source, e catalog.Entry, run func(name string, argv []string) error) error {
 	e, err := src.Resolve(ctx, e)
 	if err != nil {
 		return err
@@ -73,14 +73,29 @@ func Install(ctx context.Context, src catalog.Source, e catalog.Entry, run func(
 		return err
 	}
 	defer os.RemoveAll(dir)
-	path := filepath.Join(dir, "installer.exe")
+	path := filepath.Join(dir, "installer."+map[string]string{"exe": "exe", "msi": "msi", "msix": "msix"}[e.Kind()])
 	if err := download(ctx, e.URL, path, e.SHA256); err != nil {
 		return err
 	}
+	name, argv := Command(e.Kind(), path, e.SilentArgs)
 	if run == nil {
-		run = func(p string, a []string) error { return exec.CommandContext(ctx, p, a...).Run() }
+		run = func(n string, a []string) error { return exec.CommandContext(ctx, n, a...).Run() }
 	}
-	return run(path, e.SilentArgs)
+	return run(name, argv)
+}
+
+// Command builds the program and arguments that install a downloaded package silently.
+// No shell is involved; the path is a file this program just created in its own temp directory.
+func Command(kind, path string, silent []string) (string, []string) {
+	switch kind {
+	case "msi":
+		return "msiexec.exe", append([]string{"/i", path}, silent...)
+	case "msix":
+		q := strings.ReplaceAll(path, "'", "''")
+		return "powershell.exe", []string{"-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
+			"Add-AppxPackage -Path '" + q + "' -ErrorAction Stop"}
+	}
+	return path, silent
 }
 
 func download(ctx context.Context, url, dest, wantHex string) error {

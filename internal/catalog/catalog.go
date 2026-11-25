@@ -19,11 +19,12 @@ type Entry struct {
 	ID         string   `json:"id"`
 	Name       string   `json:"name"`
 	Publisher  string   `json:"publisher,omitempty"`
-	Match      []string `json:"match"`      // lower-case substrings of the installed DisplayName
-	Version    string   `json:"version"`    // latest version
-	URL        string   `json:"url"`        // https installer download
-	SHA256     string   `json:"sha256"`     // hex, required
-	SilentArgs []string `json:"silentArgs"` // e.g. ["/S"] or ["/VERYSILENT","/NORESTART"]
+	Match      []string `json:"match"`          // lower-case substrings of the installed DisplayName
+	Version    string   `json:"version"`        // latest version
+	Type       string   `json:"type,omitempty"` // exe (default), msi or msix
+	URL        string   `json:"url"`            // https installer download
+	SHA256     string   `json:"sha256"`         // hex, required
+	SilentArgs []string `json:"silentArgs"`     // e.g. ["/S"] or ["/VERYSILENT","/NORESTART"]
 }
 
 // Source is one place to learn about application updates. Several can be combined: the first that
@@ -79,10 +80,21 @@ func (e Entry) Validate() error {
 		return errors.New("url must be https")
 	case len(e.SHA256) != 64:
 		return errors.New("sha256 must be 64 hex characters")
-	case strings.HasSuffix(strings.ToLower(strings.SplitN(e.URL, "?", 2)[0]), ".msi"):
-		return errors.New("MSI installers are not supported (home PCs only)")
+	case e.Kind() == "":
+		return errors.New("type must be exe, msi or msix")
 	}
 	return nil
+}
+
+// Kind is the installer kind: "exe", "msi" or "msix" ("" if unknown). An empty Type means exe.
+func (e Entry) Kind() string {
+	switch t := strings.ToLower(e.Type); t {
+	case "", "exe":
+		return "exe"
+	case "msi", "msix":
+		return t
+	}
+	return ""
 }
 
 // Find returns the entry matching an installed application name, if any.

@@ -15,7 +15,8 @@ import (
 type Installer struct {
 	URL        string
 	SHA256     string
-	Type       string
+	Type       string // winget InstallerType
+	Kind       string // exe, msi or msix
 	SilentArgs []string
 }
 
@@ -45,12 +46,25 @@ var defaultSilent = map[string][]string{
 	"burn":     {"/quiet", "/norestart"},
 }
 
+// kindOf maps a winget InstallerType to what we can run: "exe", "msi", "msix", or "" (zip, portable, ...).
+func kindOf(typ string) string {
+	switch typ {
+	case "exe", "inno", "nullsoft", "nsis", "burn":
+		return "exe"
+	case "msi", "wix":
+		return "msi"
+	case "msix", "appx":
+		return "msix"
+	}
+	return ""
+}
+
 // ErrNoInstaller means the manifest has no installer this app can run (for example only MSI or MSIX).
 var ErrNoInstaller = errors.New("no usable installer in the winget manifest")
 
 // PickInstaller chooses an installer for arch ("x64", "x86", "arm64") from a winget installer manifest.
-// Only plain executable installers are used: MSI (wix/msi), MSIX/AppX, zip and portable entries are skipped,
-// because this product targets home PCs and never installs MSI packages.
+// Executable installers (with known silent switches), MSI and MSIX/AppX packages are used; zip and portable
+// entries are skipped.
 func PickInstaller(yamlDoc []byte, arch string) (Installer, error) {
 	var m manifest
 	if err := yaml.Unmarshal(yamlDoc, &m); err != nil {
@@ -74,9 +88,8 @@ func PickInstaller(yamlDoc []byte, arch string) (Installer, error) {
 			if !strings.EqualFold(in.Architecture, want) {
 				continue
 			}
-			switch typ {
-			case "exe", "inno", "nullsoft", "nsis", "burn":
-			default:
+			kind := kindOf(typ)
+			if kind == "" {
 				continue
 			}
 			args := strings.Fields(first(in.InstallerSwitches.Silent, in.InstallerSwitches.SilentWithProgress,
@@ -84,10 +97,14 @@ func PickInstaller(yamlDoc []byte, arch string) (Installer, error) {
 			if len(args) == 0 {
 				args = defaultSilent[typ]
 			}
-			if len(args) == 0 || !strings.HasPrefix(strings.ToLower(in.InstallerURL), "https://") || len(in.InstallerSha256) != 64 {
+			if kind == "msi" && len(args) == 0 {
+				args = []string{"/qn", "/norestart"}
+			}
+			// MSIX/Appx installs take no switches; a generic exe with no known switches is not safe unattended.
+			if kind != "msix" && len(args) == 0 || !strings.HasPrefix(strings.ToLower(in.InstallerURL), "https://") || len(in.InstallerSha256) != 64 {
 				continue // generic exe without known silent switches, or missing URL/hash: not safe to run unattended
 			}
-			return Installer{URL: in.InstallerURL, SHA256: strings.ToLower(in.InstallerSha256), Type: typ, SilentArgs: append([]string(nil), args...)}, nil
+			return Installer{Kind: kind, URL: in.InstallerURL, SHA256: strings.ToLower(in.InstallerSha256), Type: typ, SilentArgs: append([]string(nil), args...)}, nil
 		}
 	}
 	return Installer{}, ErrNoInstaller

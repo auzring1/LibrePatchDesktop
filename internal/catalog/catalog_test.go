@@ -15,9 +15,14 @@ func TestValidate(t *testing.T) {
 	if err := ok.Validate(); err != nil {
 		t.Fatal(err)
 	}
+	msi := ok
+	msi.Type, msi.URL = "msi", "https://e.com/x.msi"
+	if err := msi.Validate(); err != nil {
+		t.Fatalf("msi must be allowed: %v", err)
+	}
 	for name, mut := range map[string]func(*Entry){
 		"http":   func(e *Entry) { e.URL = "http://e.com/x.exe" },
-		"msi":    func(e *Entry) { e.URL = "https://e.com/x.MSI?dl=1" },
+		"type":   func(e *Entry) { e.Type = "zip" },
 		"nohash": func(e *Entry) { e.SHA256 = "" },
 	} {
 		e := ok

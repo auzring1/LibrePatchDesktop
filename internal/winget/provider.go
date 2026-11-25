@@ -52,7 +52,7 @@ func (p *Provider) Resolve(ctx context.Context, e catalog.Entry) (catalog.Entry,
 	if err != nil {
 		return e, fmt.Errorf("%s %s: %w", e.ID, e.Version, err)
 	}
-	e.URL, e.SHA256, e.SilentArgs = in.URL, in.SHA256, in.SilentArgs
+	e.Type, e.URL, e.SHA256, e.SilentArgs = in.Kind, in.URL, in.SHA256, in.SilentArgs
 	return e, nil
 }
 

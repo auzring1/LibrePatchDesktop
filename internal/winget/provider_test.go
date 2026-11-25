@@ -20,7 +20,7 @@ func read(t *testing.T, name string) []byte {
 	return b
 }
 
-func TestPickInstallerSkipsMSI(t *testing.T) {
+func TestPickInstallerPicksExe(t *testing.T) {
 	in, err := PickInstaller(read(t, "7zip.7zip.installer.yaml"), "x64")
 	if err != nil {
 		t.Fatal(err)
@@ -28,7 +28,7 @@ func TestPickInstallerSkipsMSI(t *testing.T) {
 	if !strings.HasSuffix(in.URL, "7z2600-x64.exe") || len(in.SilentArgs) != 1 || in.SilentArgs[0] != "/S" || in.Type != "exe" {
 		t.Fatalf("unexpected installer %+v", in)
 	}
-	// An arm64 exe exists too; unknown architectures fall back to x86/neutral or nothing, never to MSI.
+
 	in, err = PickInstaller(read(t, "7zip.7zip.installer.yaml"), "x86")
 	if err != nil || !strings.HasSuffix(in.URL, "7z2600.exe") {
 		t.Fatalf("x86: %+v %v", in, err)
@@ -42,20 +42,24 @@ func TestPickInstallerNullsoftDefaultsAndTopLevelSwitch(t *testing.T) {
 	}
 }
 
-func TestPickInstallerRejectsMSIOnly(t *testing.T) {
-	doc := `Installers:
-- Architecture: x64
-  InstallerType: wix
-  InstallerUrl: https://e.com/a.msi
-  InstallerSha256: ` + strings.Repeat("A", 64) + `
-`
-	if _, err := PickInstaller([]byte(doc), "x64"); err != ErrNoInstaller {
-		t.Fatalf("want ErrNoInstaller, got %v", err)
+func TestPickInstallerMSIAndMSIX(t *testing.T) {
+	h := strings.Repeat("A", 64)
+	doc := "Installers:\n- Architecture: x64\n  InstallerType: wix\n  InstallerUrl: https://e.com/a.msi\n  InstallerSha256: " + h + "\n"
+	in, err := PickInstaller([]byte(doc), "x64")
+	if err != nil || in.Kind != "msi" || len(in.SilentArgs) != 2 {
+		t.Fatalf("msi: %+v %v", in, err)
 	}
-	// A generic exe with no known silent switches must not be run unattended.
-	doc = strings.Replace(doc, "wix", "exe", 1)
-	if _, err := PickInstaller([]byte(doc), "x64"); err != ErrNoInstaller {
-		t.Fatalf("exe without switches: got %v", err)
+	doc = strings.Replace(doc, "wix", "msix", 1)
+	in, err = PickInstaller([]byte(doc), "x64")
+	if err != nil || in.Kind != "msix" || len(in.SilentArgs) != 0 {
+		t.Fatalf("msix: %+v %v", in, err)
+	}
+	// Zip/portable are skipped; a generic exe with no known silent switches must not be run unattended.
+	for _, typ := range []string{"zip", "portable", "exe"} {
+		d := strings.Replace(doc, "msix", typ, 1)
+		if _, err := PickInstaller([]byte(d), "x64"); err != ErrNoInstaller {
+			t.Fatalf("%s: got %v", typ, err)
+		}
 	}
 }
 
