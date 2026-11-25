@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LibrePatchDesktop</title>
+<style>
+:root{--bg:#f6f8f9;--fg:#18242b;--mut:#5d6d76;--card:#fff;--line:#dbe3e7;--teal:#0f8b8d;--amber:#e09f1f;--red:#c0392b}
+@media(prefers-color-scheme:dark){:root{--bg:#10181c;--fg:#e6eef1;--mut:#93a4ad;--card:#18242a;--line:#2a3a42}}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px system-ui,sans-serif}
+main{max-width:860px;margin:0 auto;padding:24px 16px}
+h1{font-size:22px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 16px}
+.bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+button{background:var(--teal);color:#fff;border:0;border-radius:6px;padding:8px 14px;font:inherit;cursor:pointer}
+button.sec{background:transparent;color:var(--fg);border:1px solid var(--line)}
+button:disabled{opacity:.5;cursor:default}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:8px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line)}th{color:var(--mut);font-weight:600;font-size:13px}
+.up{color:var(--amber);font-weight:600}.ok{color:var(--teal)}.bad{color:var(--red)}
+#msg{color:var(--mut)}
+</style></head><body><main>
+<h1>LibrePatchDesktop</h1><p class="sub">Keeps your applications up to date. Windows itself is updated in Settings &gt; Windows Update.</p>
+<div class="bar"><button id="all" disabled>Update all</button><button id="re" class="sec">Check again</button><span id="msg"></span></div>
+<table><thead><tr><th>Application</th><th>Installed</th><th>Latest</th><th></th></tr></thead><tbody id="rows"></tbody></table>
+</main><script>
+const T="__TOKEN__";
+const H={"X-Token":T,"Content-Type":"application/json"};
+const $=id=>document.getElementById(id);
+async function api(p,m,b){const r=await fetch(p,{method:m||"GET",headers:H,body:b?JSON.stringify(b):undefined});if(!r.ok)throw new Error(await r.text());return r.json()}
+function cell(tr,text,cls){const td=document.createElement("td");td.textContent=text;if(cls)td.className=cls;tr.appendChild(td);return td}
+let busy=false;
+async function load(){
+  const d=await api("/api/apps");busy=d.busy||d.loading;
+  const body=$("rows");body.textContent="";let n=0;
+  for(const r of d.rows){
+    const tr=document.createElement("tr");cell(tr,r.name);cell(tr,r.installed);cell(tr,r.latest||"");
+    const td=document.createElement("td");
+    if(r.state){td.textContent=r.state==="installing"?"Installing…":r.state==="queued"?"Waiting…":r.state==="done"?"Updated":r.state;td.className=r.state.startsWith("failed")?"bad":"ok"}
+    else if(r.status==="update-available"){n++;const b=document.createElement("button");b.textContent="Update";b.disabled=busy;b.onclick=()=>run([r.key]);td.appendChild(b)}
+    else{td.textContent="Up to date";td.className="ok"}
+    tr.appendChild(td);body.appendChild(tr)}
+  $("all").disabled=busy||n===0;$("all").textContent=n?"Update all ("+n+")":"Update all";$("re").disabled=busy;
+  $("msg").textContent=d.error?"Error: "+d.error:d.loading?"Checking your applications…":d.busy?"Updating…":d.rows.length?"":"No supported applications found yet.";
+}
+async function run(keys){try{await api("/api/update","POST",{keys})}catch(e){$("msg").textContent=e.message}load()}
+$("all").onclick=()=>run([]);$("re").onclick=async()=>{await api("/api/refresh","POST");load()};
+setInterval(()=>load().catch(()=>{}),1000);api("/api/refresh","POST").then(load);
+</script></body></html>

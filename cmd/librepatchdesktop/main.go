@@ -22,6 +22,7 @@ import (
 const usage = `LibrePatchDesktop: keep your applications up to date (applications only, no Windows Update).
 
 Usage:
+  librepatchdesktop [flags] [gui]     open the window (default when started by double-click)
   librepatchdesktop [flags] list      show installed applications
   librepatchdesktop [flags] check     show which have updates
   librepatchdesktop [flags] update    install all available updates silently
@@ -33,9 +34,20 @@ func main() {
 	fake := flag.Bool("fake", false, "use a built-in sample app list instead of the Windows registry")
 	flag.Usage = func() { fmt.Fprintln(os.Stderr, usage); flag.PrintDefaults() }
 	flag.Parse()
-	if flag.NArg() != 1 {
+	if flag.NArg() > 1 {
 		flag.Usage()
 		os.Exit(2)
+	}
+	if flag.NArg() == 0 || flag.Arg(0) == "gui" {
+		var sc inventory.Scanner = inventory.NewScanner()
+		if *fake {
+			sc = fakeScanner()
+		}
+		if err := runGUI(sc, *catPath, *noWinget); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
+		return
 	}
 	if err := run(flag.Arg(0), *catPath, *fake, *noWinget); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -46,7 +58,7 @@ func main() {
 func run(cmd, catPath string, fake, noWinget bool) error {
 	var sc inventory.Scanner = inventory.NewScanner()
 	if fake {
-		sc = inventory.Static{{Name: "7-Zip 23.01 (x64)", Version: "23.01", Scope: "machine"}}
+		sc = fakeScanner()
 	}
 	apps, err := sc.Scan()
 	if err != nil {
@@ -118,4 +130,8 @@ func loadSources(catPath string, noWinget bool) ([]catalog.Source, error) {
 		return nil, errors.New("no catalog source: give --catalog or drop --no-winget")
 	}
 	return out, nil
+}
+
+func fakeScanner() inventory.Scanner {
+	return inventory.Static{{Name: "7-Zip 23.01 (x64)", Version: "23.01", Scope: "machine"}}
 }
