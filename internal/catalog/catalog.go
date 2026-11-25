@@ -1,19 +1,21 @@
 // Package catalog describes which applications can be updated and how.
 //
-// The catalog source is still open (winget community index, own curated list,
-// or both); everything here sits behind the Source interface so it can change.
+// Sources sit behind the Source interface so more can be added.
 package catalog
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/auzring1/librepatchdesktop/internal/inventory"
 	"os"
 	"strings"
 )
 
 // Entry is the newest known release of one application.
 type Entry struct {
+	Source     string   `json:"-"` // which Source produced it ("file", "winget", ...)
 	ID         string   `json:"id"`
 	Name       string   `json:"name"`
 	Publisher  string   `json:"publisher,omitempty"`
@@ -24,16 +26,25 @@ type Entry struct {
 	SilentArgs []string `json:"silentArgs"` // e.g. ["/S"] or ["/VERYSILENT","/NORESTART"]
 }
 
-// Source provides catalog entries.
+// Source is one place to learn about application updates. Several can be combined: the first that
+// recognises an installed app decides. Today: winget and a JSON file; a curated catalog or automatic
+// discovery on vendor sites can be added later as further Sources.
 type Source interface {
-	Entries() ([]Entry, error)
+	Name() string
+	// Lookup returns the newest known version for an installed app. The entry may still lack its
+	// download details (URL, SHA256, SilentArgs); Resolve fills them in just before installing.
+	Lookup(app inventory.App) (Entry, bool)
+	Resolve(ctx context.Context, e Entry) (Entry, error)
 }
 
-// File is a Source backed by a JSON file: {"entries":[...]}.
-type File string
+// FileSource is a Source backed by a JSON file: {"entries":[...]}.
+type FileSource struct{ entries []Entry }
 
-func (f File) Entries() ([]Entry, error) {
-	b, err := os.ReadFile(string(f))
+func (f *FileSource) Name() string { return "file" }
+
+// LoadFile reads and validates a catalog file.
+func LoadFile(path string) (*FileSource, error) {
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -41,21 +52,29 @@ func (f File) Entries() ([]Entry, error) {
 		Entries []Entry `json:"entries"`
 	}
 	if err := json.Unmarshal(b, &doc); err != nil {
-		return nil, fmt.Errorf("catalog %s: %w", f, err)
+		return nil, fmt.Errorf("catalog %s: %w", path, err)
 	}
-	for i, e := range doc.Entries {
-		if err := e.Validate(); err != nil {
-			return nil, fmt.Errorf("catalog entry %d (%s): %w", i, e.ID, err)
+	for i := range doc.Entries {
+		doc.Entries[i].Source = "file"
+		if len(doc.Entries[i].Match) == 0 {
+			return nil, fmt.Errorf("catalog entry %d (%s): match is required", i, doc.Entries[i].ID)
+		}
+		if err := doc.Entries[i].Validate(); err != nil {
+			return nil, fmt.Errorf("catalog entry %d (%s): %w", i, doc.Entries[i].ID, err)
 		}
 	}
-	return doc.Entries, nil
+	return &FileSource{entries: doc.Entries}, nil
 }
+
+func (f *FileSource) Lookup(app inventory.App) (Entry, bool) { return Find(f.entries, app.Name) }
+
+func (f *FileSource) Resolve(_ context.Context, e Entry) (Entry, error) { return e, nil }
 
 // Validate enforces the safety rules every entry must meet.
 func (e Entry) Validate() error {
 	switch {
-	case e.ID == "" || e.Version == "" || len(e.Match) == 0:
-		return errors.New("id, version and match are required")
+	case e.ID == "" || e.Version == "":
+		return errors.New("id and version are required")
 	case !strings.HasPrefix(strings.ToLower(e.URL), "https://"):
 		return errors.New("url must be https")
 	case len(e.SHA256) != 64:

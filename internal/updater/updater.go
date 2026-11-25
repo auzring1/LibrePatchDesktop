@@ -29,25 +29,28 @@ const (
 	Unknown  Status = "not-in-catalog"
 )
 
-// Item pairs an installed app with its catalog entry.
+// Item pairs an installed app with the catalog entry that describes its newest version.
 type Item struct {
 	App    inventory.App
 	Entry  *catalog.Entry
+	Source catalog.Source
 	Status Status
 }
 
-// Check classifies every installed app.
-func Check(apps []inventory.App, entries []catalog.Entry) []Item {
+// Check classifies every installed app. The first source that recognises an app decides.
+func Check(apps []inventory.App, sources []catalog.Source) []Item {
 	items := make([]Item, 0, len(apps))
 	for _, a := range apps {
 		it := Item{App: a, Status: Unknown}
-		if e, ok := catalog.Find(entries, a.Name); ok {
-			e := e
-			it.Entry = &e
-			if version.Compare(a.Version, e.Version) < 0 {
-				it.Status = Outdated
-			} else {
+		for _, s := range sources {
+			if e, ok := s.Lookup(a); ok {
+				e := e
+				it.Entry, it.Source = &e, s
 				it.Status = UpToDate
+				if version.Compare(a.Version, e.Version) < 0 {
+					it.Status = Outdated
+				}
+				break
 			}
 		}
 		items = append(items, it)
@@ -55,9 +58,13 @@ func Check(apps []inventory.App, entries []catalog.Entry) []Item {
 	return items
 }
 
-// Install downloads the installer, verifies its SHA-256 and runs it silently.
-// Nothing is executed unless the hash matches the catalog.
-func Install(ctx context.Context, e catalog.Entry, run func(path string, args []string) error) error {
+// Install resolves the download details, downloads the installer, verifies its SHA-256 and runs it
+// silently. Nothing is executed unless the hash matches the one the source gave.
+func Install(ctx context.Context, src catalog.Source, e catalog.Entry, run func(path string, args []string) error) error {
+	e, err := src.Resolve(ctx, e)
+	if err != nil {
+		return err
+	}
 	if err := e.Validate(); err != nil {
 		return err
 	}

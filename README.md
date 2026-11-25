@@ -14,10 +14,18 @@ Early development. Working today (command line):
     librepatchdesktop check     # which have updates, per the catalog
     librepatchdesktop update    # download, verify SHA-256, install silently
 
-`--catalog file.json` selects the catalog; `--fake` uses a sample app list so it runs off Windows.
-Catalog entries must be https, carry a SHA-256, and cannot be MSI.
-The catalog source (winget index or a curated list) and the graphical window are not built yet.
+Updates come from the **winget community index** (the same app database the winget client uses). The index
+(`source2.msix`) is cached for a day; the installer URL, SHA-256 and silent switches are read from the package's
+winget manifest just before installing. Only plain `.exe` installers are used (inno, nullsoft, burn, or an exe with
+documented silent switches); MSI/MSIX/zip/portable entries are skipped, and nothing runs unless the SHA-256 matches.
 
-Windows-only code (registry scan) is built by CI but has not been run on a real PC yet.
+Catalog sources are pluggable (`internal/catalog.Source`): `--catalog file.json` adds a local list that is consulted
+before winget, `--no-winget` turns winget off, `--fake` uses a sample app list off Windows. A curated catalog and
+automatic discovery of vendor downloads can be added later as further sources.
+
+The graphical window is not built yet. The index code is adapted from LibrePatch (same owner, AGPL-3.0).
+
+Not yet run for real: the registry scan on Windows, and the download of the real winget index (the build sandbox
+cannot reach that host; the index reader is tested against a small sample file). Please try `check` on a PC first.
 
 Licensed under AGPL-3.0.
