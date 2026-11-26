@@ -68,11 +68,11 @@ func TestCommand(t *testing.T) {
 	if n, a := Command("exe", "C:\\t\\i.exe", []string{"/S"}); n != "C:\\t\\i.exe" || a[0] != "/S" {
 		t.Fatal(n, a)
 	}
-	if n, a := Command("msi", "C:\\t\\i.msi", []string{"/qn"}); n != "msiexec.exe" || a[0] != "/i" || a[1] != "C:\\t\\i.msi" || a[2] != "/qn" {
+	if n, a := Command("msi", "C:\\t\\i.msi", []string{"/qn"}); !strings.HasSuffix(n, `\System32\msiexec.exe`) || a[0] != "/i" || a[1] != "C:\\t\\i.msi" || a[2] != "/qn" {
 		t.Fatal(n, a)
 	}
 	n, a := Command("msix", "C:\\o'brien\\i.msix", nil)
-	if n != "powershell.exe" || !strings.Contains(a[len(a)-1], "'C:\\o''brien\\i.msix'") {
+	if !strings.HasSuffix(n, `\powershell.exe`) || !strings.Contains(a[len(a)-1], "'C:\\o''brien\\i.msix'") {
 		t.Fatal(n, a)
 	}
 }

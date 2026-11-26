@@ -9,6 +9,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/auzring1/librepatchdesktop/internal/sysdir"
 	"golang.org/x/sys/windows"
 )
 
@@ -32,7 +33,7 @@ func Relaunch() error {
 // RunTask starts a Windows scheduled task by name, hidden. The installer registers the task "LibrePatchDesktop"
 // to run this program with the highest privileges, so launching it needs no UAC prompt.
 func RunTask(name string) error {
-	cmd := exec.Command("schtasks.exe", "/Run", "/TN", name)
+	cmd := exec.Command(sysdir.System32("schtasks.exe"), "/Run", "/TN", name)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000} // CREATE_NO_WINDOW
 	return cmd.Run()
 }

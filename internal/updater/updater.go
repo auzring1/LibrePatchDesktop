@@ -17,6 +17,7 @@ import (
 
 	"github.com/auzring1/librepatchdesktop/internal/catalog"
 	"github.com/auzring1/librepatchdesktop/internal/inventory"
+	"github.com/auzring1/librepatchdesktop/internal/sysdir"
 	"github.com/auzring1/librepatchdesktop/internal/version"
 )
 
@@ -89,10 +90,10 @@ func Install(ctx context.Context, src catalog.Source, e catalog.Entry, run func(
 func Command(kind, path string, silent []string) (string, []string) {
 	switch kind {
 	case "msi":
-		return "msiexec.exe", append([]string{"/i", path}, silent...)
+		return sysdir.System32("msiexec.exe"), append([]string{"/i", path}, silent...)
 	case "msix":
 		q := strings.ReplaceAll(path, "'", "''")
-		return "powershell.exe", []string{"-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
+		return sysdir.System32("WindowsPowerShell", "v1.0", "powershell.exe"), []string{"-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
 			"Add-AppxPackage -Path '" + q + "' -ErrorAction Stop"}
 	}
 	return path, silent

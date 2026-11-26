@@ -11,6 +11,7 @@ import (
 
 	"github.com/auzring1/librepatchdesktop/internal/catalog"
 	"github.com/auzring1/librepatchdesktop/internal/inventory"
+	"github.com/auzring1/librepatchdesktop/internal/sysdir"
 	"github.com/auzring1/librepatchdesktop/internal/ui"
 	"github.com/auzring1/librepatchdesktop/internal/updater"
 	"github.com/auzring1/librepatchdesktop/internal/window"
@@ -67,11 +68,11 @@ func openBrowser(url string) {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+		cmd = exec.Command(sysdir.System32("rundll32.exe"), "url.dll,FileProtocolHandler", url)
 	case "darwin":
-		cmd = exec.Command("open", url)
+		cmd = exec.Command("/usr/bin/open", url)
 	default:
-		cmd = exec.Command("xdg-open", url)
+		cmd = exec.Command("/usr/bin/xdg-open", url)
 	}
 	if err := cmd.Start(); err != nil {
 		fmt.Fprintln(os.Stderr, "open this address in your browser:", url)
