@@ -17,8 +17,12 @@ import (
 	"github.com/auzring1/librepatchdesktop/internal/catalog"
 	"github.com/auzring1/librepatchdesktop/internal/elevate"
 	"github.com/auzring1/librepatchdesktop/internal/inventory"
+	"github.com/auzring1/librepatchdesktop/internal/ui"
 	"github.com/auzring1/librepatchdesktop/internal/updater"
 )
+
+// version is set at build time with -ldflags "-X main.version=1.2.3".
+var version = "dev"
 
 const usage = `LibrePatchDesktop: keep your applications up to date (applications only, no Windows Update).
 
@@ -31,6 +35,7 @@ Flags:`
 
 func main() {
 	catPath := flag.String("catalog", "", "optional extra catalog JSON file, consulted before winget")
+	demo := flag.Bool("demo", false, "open the window with made-up apps (nothing is installed)")
 	noWinget := flag.Bool("no-winget", false, "do not use the winget community index")
 	fake := flag.Bool("fake", false, "use a built-in sample app list instead of the Windows registry")
 	flag.Usage = func() { fmt.Fprintln(os.Stderr, usage); flag.PrintDefaults() }
@@ -41,18 +46,24 @@ func main() {
 	}
 	// Installers usually need administrator rights. An installed copy has a scheduled task that runs it
 	// elevated without a prompt; otherwise (portable exe) ask with UAC.
-	if !*fake && (flag.NArg() == 0 || flag.Arg(0) == "gui" || flag.Arg(0) == "update") && !elevate.IsAdmin() {
+	if !*fake && !*demo && (flag.NArg() == 0 || flag.Arg(0) == "gui" || flag.Arg(0) == "update") && !elevate.IsAdmin() {
 		if elevate.RunTask("LibrePatchDesktop") == nil || elevate.Relaunch() == nil {
 			return
 		}
 		fmt.Fprintln(os.Stderr, "continuing without administrator rights: some updates may fail")
 	}
 	if flag.NArg() == 0 || flag.Arg(0) == "gui" {
-		var sc inventory.Scanner = inventory.NewScanner()
-		if *fake {
-			sc = fakeScanner()
+		var b ui.Backend
+		if *demo {
+			b = demoBackend{}
+		} else {
+			var sc inventory.Scanner = inventory.NewScanner()
+			if *fake {
+				sc = fakeScanner()
+			}
+			b = &backend{scanner: sc, catPath: *catPath, noWinget: *noWinget}
 		}
-		if err := runGUI(sc, *catPath, *noWinget); err != nil {
+		if err := runGUI(b); err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(1)
 		}

@@ -28,6 +28,9 @@ const (
 	UpToDate Status = "up-to-date"
 	Outdated Status = "update-available"
 	Unknown  Status = "not-in-catalog"
+	// Superseded marks an older copy of an app whose newest version is installed as well (for example two
+	// .NET runtimes side by side): updating it would not remove it, so it is not offered.
+	Superseded Status = "older-copy"
 )
 
 // Item pairs an installed app with the catalog entry that describes its newest version.
@@ -55,6 +58,19 @@ func Check(apps []inventory.App, sources []catalog.Source) []Item {
 			}
 		}
 		items = append(items, it)
+	}
+	// An outdated copy is superseded when another installed copy of the same package is already current.
+	current := map[string]bool{}
+	for _, it := range items {
+		if it.Status == UpToDate && it.Entry != nil && it.Entry.Source == "winget" {
+			current[it.Entry.ID] = true
+		}
+	}
+	for i := range items {
+		it := &items[i]
+		if it.Status == Outdated && it.Entry != nil && it.Entry.Source == "winget" && current[it.Entry.ID] {
+			it.Status = Superseded
+		}
 	}
 	return items
 }

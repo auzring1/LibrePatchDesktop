@@ -76,3 +76,26 @@ func TestCommand(t *testing.T) {
 		t.Fatal(n, a)
 	}
 }
+
+func TestSupersededOlderCopy(t *testing.T) {
+	src := fixedSource{id: "MS.Runtime", ver: "8.0.34"}
+	apps := []inventory.App{{Name: "Runtime 8.0.8", Version: "8.0.8.33916"}, {Name: "Runtime 8.0.34", Version: "8.0.34.36622"}}
+	got := Check(apps, []catalog.Source{src})
+	if got[0].Status != Superseded || got[1].Status != UpToDate {
+		t.Fatalf("%s %s", got[0].Status, got[1].Status)
+	}
+	got = Check(apps[:1], []catalog.Source{src})
+	if got[0].Status != Outdated {
+		t.Fatalf("alone it is outdated, got %s", got[0].Status)
+	}
+}
+
+type fixedSource struct{ id, ver string }
+
+func (f fixedSource) Name() string { return "winget" }
+func (f fixedSource) Lookup(inventory.App) (catalog.Entry, bool) {
+	return catalog.Entry{Source: "winget", ID: f.id, Version: f.ver}, true
+}
+func (f fixedSource) Resolve(_ context.Context, e catalog.Entry) (catalog.Entry, error) {
+	return e, nil
+}

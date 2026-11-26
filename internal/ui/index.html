@@ -2,44 +2,180 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>LibrePatchDesktop</title>
 <style>
-:root{--bg:#f6f8f9;--fg:#18242b;--mut:#5d6d76;--card:#fff;--line:#dbe3e7;--teal:#0f8b8d;--amber:#e09f1f;--red:#c0392b}
-@media(prefers-color-scheme:dark){:root{--bg:#10181c;--fg:#e6eef1;--mut:#93a4ad;--card:#18242a;--line:#2a3a42}}
-body{margin:0;background:var(--bg);color:var(--fg);font:15px system-ui,sans-serif}
-main{max-width:860px;margin:0 auto;padding:24px 16px}
-h1{font-size:22px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 16px}
-.bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
-button{background:var(--teal);color:#fff;border:0;border-radius:6px;padding:8px 14px;font:inherit;cursor:pointer}
-button.sec{background:transparent;color:var(--fg);border:1px solid var(--line)}
-button:disabled{opacity:.5;cursor:default}
-table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:8px}
-th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line)}th{color:var(--mut);font-weight:600;font-size:13px}
-.up{color:var(--amber);font-weight:600}.ok{color:var(--teal)}.bad{color:var(--red)}
-#msg{color:var(--mut)}
-</style></head><body><main>
-<h1>LibrePatchDesktop</h1><p class="sub">Keeps your applications up to date. Windows itself is updated in Settings &gt; Windows Update.</p>
-<div class="bar"><button id="all" disabled>Update all</button><button id="re" class="sec">Check again</button><button id="q" class="sec">Quit</button><span id="msg"></span></div>
-<table><thead><tr><th>Application</th><th>Installed</th><th>Latest</th><th></th></tr></thead><tbody id="rows"></tbody></table>
-</main><script>
-const T="__TOKEN__";
-const H={"X-Token":T,"Content-Type":"application/json"};
-const $=id=>document.getElementById(id);
+:root{--bg:#0e1519;--side:#0a1115;--card:#151f25;--card2:#1a2830;--line:#24333b;--fg:#e8f0f3;--mut:#8ea0a9;--teal:#17b3b0;--tealh:#1fcac6;--amber:#f0a92e;--red:#ef5b5b;--green:#3ec28a;--onteal:#04201f}
+:root[data-theme=light]{--bg:#f2f6f7;--side:#e4ecee;--card:#fff;--card2:#f6fafb;--line:#d5e0e4;--fg:#14232a;--mut:#5b6e77;--teal:#0f8b8d;--tealh:#0c7274;--amber:#b87504;--red:#c0392b;--green:#1f8f5f;--onteal:#fff}
+@media(prefers-color-scheme:light){:root[data-theme=system]{--bg:#f2f6f7;--side:#e4ecee;--card:#fff;--card2:#f6fafb;--line:#d5e0e4;--fg:#14232a;--mut:#5b6e77;--teal:#0f8b8d;--tealh:#0c7274;--amber:#b87504;--red:#c0392b;--green:#1f8f5f;--onteal:#fff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 "Segoe UI",system-ui,sans-serif;height:100vh;overflow:hidden}
+.app{display:grid;grid-template-columns:76px 1fr;height:100vh}
+.side{background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:8px 0}
+.nav{background:none;border:0;color:var(--mut);padding:12px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;font:12px "Segoe UI",system-ui,sans-serif;border-left:3px solid transparent}
+.nav svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.nav:hover{color:var(--fg)}.nav.on{color:var(--teal);border-left-color:var(--teal);background:color-mix(in srgb,var(--teal) 10%,transparent)}
+.nav[disabled]{opacity:.4;cursor:default}
+.spacer{flex:1}
+main{overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.page{display:none;flex:1;min-height:0}.page.on{display:flex}
+.apps{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{display:flex;align-items:center;gap:12px;padding:14px 20px 0;flex-wrap:wrap}
+.tab{background:none;border:0;border-bottom:3px solid transparent;color:var(--mut);font:600 20px "Segoe UI",system-ui,sans-serif;padding:6px 4px 8px;cursor:default;display:flex;align-items:center;gap:8px}
+.tab.on{color:var(--fg);border-bottom-color:var(--teal);cursor:pointer}
+.count{background:var(--card2);border:1px solid var(--line);border-radius:12px;font-size:12px;padding:1px 9px;color:var(--mut)}
+.soon{font-size:11px;color:var(--mut);border:1px solid var(--line);border-radius:10px;padding:0 7px}
+.tools{margin-left:auto;display:flex;gap:10px;align-items:center}
+select,input[type=search]{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font:inherit}
+input[type=search]{width:200px}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{background:var(--card);border:0;color:var(--mut);padding:7px 10px;cursor:pointer}
+.seg button.on{background:var(--card2);color:var(--teal)}
+.seg svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;display:block}
+.scroll{overflow:auto;flex:1;padding:16px 20px 24px}
+.group{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:18px 0 10px;padding-top:12px;border-top:1px solid var(--line)}
+.group:first-child{border-top:0;margin-top:0;padding-top:0}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.list .grid,.grid.list{grid-template-columns:1fr}
+.grid.compact{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto auto;gap:8px 10px;min-width:0}
+.name{font-weight:600;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;grid-row:1;grid-column:2}
+.badge{justify-self:start;align-self:center;grid-column:1;grid-row:2;border:1px solid;border-radius:12px;font-size:12px;padding:1px 10px}
+.b-outdated{color:var(--red);border-color:var(--red)}.b-current{color:var(--green);border-color:var(--green)}
+.b-skipped,.b-older{color:var(--mut);border-color:var(--mut)}
+.ver{font-size:12px;color:var(--mut);display:flex;flex-direction:column;align-items:flex-end;grid-column:2;grid-row:2;align-self:end}
+.ver .new{color:var(--teal);font-weight:600}
+.acts{grid-column:1/3;display:flex;gap:8px;align-items:center;min-height:30px}
+.btn{background:var(--teal);color:var(--onteal);border:0;border-radius:6px;padding:7px 14px;font:600 13px "Segoe UI",system-ui,sans-serif;cursor:pointer}
+.btn:hover{background:var(--tealh)}.btn:disabled{opacity:.45;cursor:default}
+.ghost{background:transparent;color:var(--mut);border:1px solid var(--line);font-weight:400}.ghost:hover{background:var(--card2);color:var(--fg)}
+.st{font-size:12px}.st.bad{color:var(--red)}.st.ok{color:var(--green)}.st.run{color:var(--amber)}
+.grid.list .card{grid-template-columns:40px 1fr auto auto;grid-template-rows:auto;align-items:center}
+.grid.list .av{grid-column:1;grid-row:1}.grid.list .name{grid-column:2;grid-row:1}
+.grid.list .badge{display:none}.grid.list .ver{grid-column:3;grid-row:1;align-items:flex-start}.grid.list .acts{grid-column:4;grid-row:1}
+.grid.compact .av{width:28px;height:28px;font-size:13px}.grid.compact .ver{display:none}
+.summary{width:300px;border-left:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:14px;overflow:auto}
+.box{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px}
+.row{display:flex;justify-content:space-between;align-items:center;margin:6px 0}.row b{font-size:18px}
+.link{background:none;border:0;color:var(--teal);cursor:pointer;text-decoration:underline;font:inherit}.link:disabled{opacity:.5}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin:10px 0 4px}.bar i{display:block;height:100%;background:var(--teal);width:0;transition:width .3s}
+.big{width:100%;padding:14px;font-size:16px;margin-top:8px}
+.small{font-size:12px;color:var(--mut);word-break:break-all}
+.pad{padding:24px 28px;overflow:auto;flex:1;max-width:760px}
+h2{margin:0 0 16px}h3{margin:22px 0 8px;font-size:14px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
+.set{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.set.off{opacity:.45}.set span.d{display:block;color:var(--mut);font-size:12px}
+.msg{color:var(--mut);padding:30px;text-align:center}
+.err{color:var(--red)}
+</style></head><body><div class="app">
+<nav class="side">
+<button class="nav on" data-p="apps"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>Apps</button>
+<button class="nav" disabled title="Coming in a later version"><svg viewBox="0 0 24 24"><path d="M5 19c0-6 4-12 14-14-2 10-8 14-14 14zM9 15l-4 4"/></svg>Startup</button>
+<button class="nav" disabled title="Coming in a later version"><svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"/></svg>Uninstaller</button>
+<button class="nav" disabled title="Coming in a later version"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Scheduler</button>
+<button class="nav" data-p="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Settings</button>
+<div class="spacer"></div>
+<button class="nav" data-p="about"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>About</button>
+</nav>
+<main>
+<section class="page on" id="p-apps">
+ <div class="apps">
+  <div class="top">
+   <button class="tab on">My Apps <span class="count" id="cnt">0</span></button>
+   <button class="tab" disabled>App Library <span class="soon">soon</span></button>
+   <div class="tools">
+    <select id="flt"><option value="all">All apps</option><option value="outdated">Outdated</option><option value="current">Up to date</option><option value="skipped">Skipped</option></select>
+    <div class="seg" id="views">
+     <button data-v="list" title="List"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+     <button data-v="grid" title="Cards"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7"/><rect x="13" y="4" width="7" height="7"/><rect x="4" y="13" width="7" height="7"/><rect x="13" y="13" width="7" height="7"/></svg></button>
+     <button data-v="compact" title="Compact"><svg viewBox="0 0 24 24"><path d="M4 5h4M10 5h4M16 5h4M4 10h4M10 10h4M16 10h4M4 15h4M10 15h4M16 15h4M4 20h4M10 20h4M16 20h4"/></svg></button>
+    </div>
+    <input type="search" id="q" placeholder="Search apps">
+   </div>
+  </div>
+  <div class="scroll" id="cards"></div>
+ </div>
+ <aside class="summary">
+  <div class="box">
+   <div class="row"><strong>Summary</strong><button class="link" id="rescan">Re-Scan</button></div>
+   <div class="row"><span>Apps to Update</span><b id="s-out">0</b></div>
+   <div class="row"><span class="small">Apps to Install</span><span class="small">0</span></div>
+   <div class="bar"><i id="s-bar"></i></div>
+   <div class="small" id="s-txt"></div>
+   <button class="btn big" id="start" disabled>Start Updater</button>
+  </div>
+  <div class="box"><strong>This PC</strong><div id="s-os" class="small" style="margin:6px 0"></div><b id="s-host"></b></div>
+  <div class="box"><div class="small">Cache location</div><div class="small" id="s-cache"></div></div>
+ </aside>
+</section>
+<section class="page" id="p-settings"><div class="pad">
+ <h2>Settings</h2>
+ <div class="set"><div>Theme<span class="d">Follow Windows, or force dark or light.</span></div><select id="set-theme"><option value="system">System</option><option value="dark">Dark</option><option value="light">Light</option></select></div>
+ <div class="set"><div>Default view<span class="d">How apps are shown in My Apps.</span></div><select id="set-view"><option value="grid">Cards</option><option value="list">List</option><option value="compact">Compact</option></select></div>
+ <div class="set"><div>Skipped apps<span class="d">Apps you chose to skip are left out of Start Updater. Unskip them from their card (filter: Skipped).</span></div></div>
+ <h3>Coming in later versions</h3>
+ <div class="set off"><div>Close apps before updating</div><input type="checkbox" disabled></div>
+ <div class="set off"><div>Start with Windows</div><input type="checkbox" disabled></div>
+ <div class="set off"><div>Minimize / close to tray</div><input type="checkbox" disabled></div>
+ <div class="set off"><div>Automatic scheduled updates</div><input type="checkbox" disabled></div>
+ <div class="set off"><div>Create a restore point before updating</div><input type="checkbox" disabled></div>
+</div></section>
+<section class="page" id="p-about"><div class="pad">
+ <h2>About</h2>
+ <p><strong>LibrePatchDesktop</strong> <span id="ver"></span></p>
+ <p class="small">Free, open source application updater. Applications only; Windows itself is updated in Settings &gt; Windows Update.</p>
+ <p class="small">https://github.com/auzring1/LibrePatchDesktop</p>
+ <p><button class="btn ghost" id="quit">Quit LibrePatchDesktop</button></p>
+</div></section>
+</main></div>
+<script>
+const T="__TOKEN__",H={"X-Token":T,"Content-Type":"application/json"},$=id=>document.getElementById(id);
 async function api(p,m,b){const r=await fetch(p,{method:m||"GET",headers:H,body:b?JSON.stringify(b):undefined});if(!r.ok)throw new Error(await r.text());return r.json()}
-function cell(tr,text,cls){const td=document.createElement("td");td.textContent=text;if(cls)td.className=cls;tr.appendChild(td);return td}
-let busy=false;
-async function load(){
-  const d=await api("/api/apps");busy=d.busy||d.loading;
-  const body=$("rows");body.textContent="";let n=0;
-  for(const r of d.rows){
-    const tr=document.createElement("tr");cell(tr,r.name);cell(tr,r.installed);cell(tr,r.latest||"");
-    const td=document.createElement("td");
-    if(r.state){td.textContent=r.state==="installing"?"Installing…":r.state==="queued"?"Waiting…":r.state==="done"?"Updated":r.state;td.className=r.state.startsWith("failed")?"bad":"ok"}
-    else if(r.status==="update-available"){n++;const b=document.createElement("button");b.textContent="Update";b.disabled=busy;b.onclick=()=>run([r.key]);td.appendChild(b)}
-    else{td.textContent="Up to date";td.className="ok"}
-    tr.appendChild(td);body.appendChild(tr)}
-  $("all").disabled=busy||n===0;$("all").textContent=n?"Update all ("+n+")":"Update all";$("re").disabled=busy;
-  $("msg").textContent=d.error?"Error: "+d.error:d.loading?"Checking your applications…":d.busy?"Updating…":d.rows.length?"":"No supported applications found yet.";
-}
-async function run(keys){try{await api("/api/update","POST",{keys})}catch(e){$("msg").textContent=e.message}load()}
-$("q").onclick=async()=>{try{await api("/api/quit","POST")}catch(e){}document.body.textContent="LibrePatchDesktop has closed. You can close this tab."};$("all").onclick=()=>run([]);$("re").onclick=async()=>{await api("/api/refresh","POST");load()};
-setInterval(()=>load().catch(()=>{}),1000);api("/api/refresh","POST").then(load);
+let D={rows:[],busy:false,loading:false},view="grid",filter="all",query="";
+function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e}
+function colorOf(s){let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))>>>0;return "hsl("+(h%360)+",45%,42%)"}
+function stateText(r){return r.state==="installing"?["Installing…","run"]:r.state==="queued"?["Waiting…","run"]:r.state==="done"?["Updated ✓","ok"]:r.state?[r.state,"bad"]:null}
+function card(r){
+  const c=el("div","card");c.title=r.fullName;
+  c.append(el("div","name",r.name));
+  const av=el("div","av",(r.name[0]||"?").toUpperCase());av.style.background=colorOf(r.name);c.append(av);
+  const label={outdated:"Outdated",current:"Up to date",skipped:"Skipped",older:"Older copy"}[r.status];
+  const bd=el("span","badge b-"+r.status,r.state==="done"?"Up to date":label);c.append(bd);
+  const v=el("div","ver");v.append(el("span","",r.installed));if(r.status==="outdated"||r.status==="skipped")v.append(el("span","new","→ "+r.latest));c.append(v);
+  const a=el("div","acts"),st=stateText(r);
+  if(st){a.append(el("span","st "+st[1],st[0]))}
+  else if(r.status==="outdated"){const b=el("button","btn","Update");b.disabled=D.busy||D.loading;b.onclick=()=>run([r.key]);a.append(b);
+    const s=el("button","btn ghost","Skip");s.title="Never update this app";s.onclick=()=>skip(r.key,true);a.append(s)}
+  else if(r.status==="skipped"){const s=el("button","btn ghost","Unskip");s.onclick=()=>skip(r.key,false);a.append(s)}
+  else if(r.status==="older"){a.append(el("span","st","A newer copy is installed"))}
+  c.append(a);return c}
+function render(){
+  const root=$("cards");root.textContent="";
+  if(D.error){root.append(el("div","msg err","Error: "+D.error));return}
+  if(D.loading&&!D.rows.length){root.append(el("div","msg","Checking your applications…"));return}
+  let rows=D.rows.filter(r=>(filter==="all"||(filter==="outdated"?r.status==="outdated":filter==="current"?(r.status==="current"||r.status==="older"):r.status===filter))&&(!query||r.name.toLowerCase().includes(query)));
+  const out=rows.filter(r=>r.status==="outdated"||r.status==="skipped"),rest=rows.filter(r=>r.status!=="outdated"&&r.status!=="skipped");
+  if(!rows.length)root.append(el("div","msg",D.rows.length?"No apps match.":"No supported applications found yet."));
+  for(const [title,list] of [["Updates available",out],["Up to date",rest]]){
+    if(!list.length)continue;root.append(el("div","group",title+" ("+list.length+")"));
+    const g=el("div","grid "+view);for(const r of list)g.append(card(r));root.append(g)}
+  const todo=D.rows.filter(r=>r.status==="outdated").length,cur=D.rows.filter(r=>r.status==="current"||r.status==="older").length,all=D.rows.length;
+  $("cnt").textContent=D.rows.length;$("s-out").textContent=todo;
+  $("s-bar").style.width=(all?Math.round(100*(all-todo)/all):0)+"%";$("s-txt").textContent=all?(all-todo)+"/"+all+" apps up to date":"";
+  const b=$("start");b.disabled=D.busy||D.loading||todo===0;
+  b.textContent=D.busy?"Updating "+Math.min(D.done+1,D.batch)+" of "+D.batch+"…":D.loading?"Checking…":todo?"Start Updater":"All up to date";
+  $("rescan").disabled=D.busy||D.loading}
+async function load(){try{D=await api("/api/apps");render()}catch(e){}}
+async function run(keys){try{await api("/api/update","POST",{keys})}catch(e){}load()}
+async function skip(key,s){await api("/api/skip","POST",{key,skip:s});load()}
+function setView(v){view=v;for(const b of document.querySelectorAll("#views button"))b.classList.toggle("on",b.dataset.v===v);render()}
+for(const b of document.querySelectorAll("#views button"))b.onclick=()=>{setView(b.dataset.v);save()};
+function applyTheme(t){document.documentElement.dataset.theme=t}
+async function save(){const d=await api("/api/settings","POST",{theme:$("set-theme").value,view});applyTheme(d.theme)}
+$("set-theme").onchange=save;$("set-view").onchange=()=>{setView($("set-view").value);save()};
+$("flt").onchange=()=>{filter=$("flt").value;render()};$("q").oninput=()=>{query=$("q").value.trim().toLowerCase();render()};
+$("start").onclick=()=>run([]);$("rescan").onclick=async()=>{await api("/api/refresh","POST");load()};
+$("quit").onclick=async()=>{try{await api("/api/quit","POST")}catch(e){}document.body.textContent="LibrePatchDesktop has closed. You can close this tab."};
+for(const n of document.querySelectorAll(".nav[data-p]"))n.onclick=()=>{for(const x of document.querySelectorAll(".nav"))x.classList.toggle("on",x===n);for(const p of document.querySelectorAll(".page"))p.classList.toggle("on",p.id==="p-"+n.dataset.p)};
+api("/api/info").then(d=>{$("s-os").textContent=d.info.os;$("s-host").textContent=d.info.hostname;$("s-cache").textContent=d.info.cache;$("ver").textContent=d.version;
+  $("set-theme").value=d.settings.theme;$("set-view").value=d.settings.view;applyTheme(d.settings.theme);setView(d.settings.view)});
+setInterval(load,1000);api("/api/refresh","POST").then(load);
 </script></body></html>

@@ -22,9 +22,12 @@ jobs:
       - run: go test ./...
       - name: Build exe (no console window)
         shell: pwsh
+        env:
+          V: ${{ inputs.version || github.ref_name }}
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
-          go build -trimpath -ldflags "-s -w -H=windowsgui" -o dist/librepatchdesktop.exe ./cmd/librepatchdesktop
+          $v = $env:V.TrimStart("v")
+          go build -trimpath -ldflags "-s -w -H=windowsgui -X main.version=$v" -o dist/librepatchdesktop.exe ./cmd/librepatchdesktop
           Copy-Item dist/librepatchdesktop.exe dist/LibrePatchDesktop-Portable.exe
       - name: Build installer
         shell: pwsh

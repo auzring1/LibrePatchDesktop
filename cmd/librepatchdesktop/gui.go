@@ -7,10 +7,12 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 
 	"github.com/auzring1/librepatchdesktop/internal/catalog"
 	"github.com/auzring1/librepatchdesktop/internal/inventory"
+	"github.com/auzring1/librepatchdesktop/internal/settings"
 	"github.com/auzring1/librepatchdesktop/internal/sysdir"
 	"github.com/auzring1/librepatchdesktop/internal/ui"
 	"github.com/auzring1/librepatchdesktop/internal/updater"
@@ -46,13 +48,17 @@ const guiAddr = "127.0.0.1:47318"
 
 // runGUI serves the page on a loopback port and shows it in a native window (WebView2). If that window cannot
 // be created, it falls back to the default browser. A second launch while the app is running does nothing.
-func runGUI(scanner inventory.Scanner, catPath string, noWinget bool) error {
+func runGUI(b ui.Backend) error {
 	url := "http://" + guiAddr + "/"
 	ln, err := net.Listen("tcp", guiAddr)
 	if err != nil {
 		return nil // already running
 	}
-	s := ui.New(&backend{scanner: scanner, catPath: catPath, noWinget: noWinget})
+	s := ui.New(b)
+	s.Version = version
+	if dir, err := os.UserConfigDir(); err == nil {
+		s.Settings = settings.Open(filepath.Join(dir, "LibrePatchDesktop", "settings.json"))
+	}
 	s.Quit = func() { os.Exit(0) }
 	go http.Serve(ln, s.Handler())
 	if err := window.Run(url, "LibrePatchDesktop"); err != nil {
