@@ -3,6 +3,11 @@ name: release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, for example 0.1.0 (the tag v<version> is created)"
+        required: true
 permissions:
   contents: write
 jobs:
@@ -23,7 +28,7 @@ jobs:
         shell: pwsh
         run: |
           choco install innosetup -y --no-progress
-          $v = "${{ github.ref_name }}".TrimStart("v")
+          $v = "${{ inputs.version || github.ref_name }}".TrimStart("v")
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" installer\librepatchdesktop.iss
       - name: Checksums
         shell: pwsh
@@ -32,7 +37,8 @@ jobs:
           Get-FileHash dist/*.exe -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } | Set-Content dist/SHA256SUMS.txt
       - uses: softprops/action-gh-release@v2
         with:
-          prerelease: ${{ startsWith(github.ref_name, 'v0.') }}
+          tag_name: ${{ inputs.version && format('v{0}', inputs.version) || github.ref_name }}
+          prerelease: ${{ startsWith(inputs.version || github.ref_name, '0.') || startsWith(inputs.version || github.ref_name, 'v0.') }}
           files: |
             dist/LibrePatchDesktop-Setup.exe
             dist/LibrePatchDesktop-Portable.exe
