@@ -8,3 +8,6 @@ func IsAdmin() bool { return true }
 
 // Relaunch does nothing off Windows.
 func Relaunch() error { return nil }
+
+// RunTask does nothing off Windows.
+func RunTask(string) error { return nil }

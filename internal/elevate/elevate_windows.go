@@ -5,6 +5,7 @@ package elevate
 
 import (
 	"os"
+	"os/exec"
 	"strings"
 	"syscall"
 
@@ -26,4 +27,12 @@ func Relaunch() error {
 	file, _ := syscall.UTF16PtrFromString(exe)
 	params, _ := syscall.UTF16PtrFromString(strings.TrimSpace(args))
 	return windows.ShellExecute(0, verb, file, params, nil, windows.SW_NORMAL)
+}
+
+// RunTask starts a Windows scheduled task by name, hidden. The installer registers the task "LibrePatchDesktop"
+// to run this program with the highest privileges, so launching it needs no UAC prompt.
+func RunTask(name string) error {
+	cmd := exec.Command("schtasks.exe", "/Run", "/TN", name)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000} // CREATE_NO_WINDOW
+	return cmd.Run()
 }

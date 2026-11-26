@@ -27,7 +27,7 @@ Catalog sources are pluggable (`internal/catalog.Source`): `--catalog file.json`
 before winget, `--no-winget` turns winget off, `--fake` uses a sample app list off Windows. A curated catalog and
 automatic discovery of vendor downloads can be added later as further sources.
 
-The window is a native Windows window (Microsoft Edge WebView2, present on Windows 11 and most Windows 10 PCs); if WebView2 is missing it opens in the browser instead. The app asks for administrator rights at start (UAC) because most installers need them. The index code is adapted from LibrePatch (same owner, AGPL-3.0).
+The window is a native Windows window (Microsoft Edge WebView2, present on Windows 11 and most Windows 10 PCs); if WebView2 is missing it opens in the browser instead. Most installers need administrator rights: the Setup installer (one UAC prompt) registers a scheduled task that starts the app elevated with no prompt on later launches; the portable exe asks with UAC. The index code is adapted from LibrePatch (same owner, AGPL-3.0).
 
 Not yet run for real: the registry scan on Windows, and the download of the real winget index (the build sandbox
 cannot reach that host; the index reader is tested against a small sample file). Please try `check` on a PC first.

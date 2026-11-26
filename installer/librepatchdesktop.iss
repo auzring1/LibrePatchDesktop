@@ -30,14 +30,18 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 
 [Files]
 Source: "..\dist\librepatchdesktop.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "register-task.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\LibrePatchDesktop"; Filename: "{app}\librepatchdesktop.exe"
 Name: "{autodesktop}\LibrePatchDesktop"; Filename: "{app}\librepatchdesktop.exe"; Tasks: desktopicon
 
 [Run]
+; One UAC prompt happens when this installer starts. The task lets the app start elevated afterwards with no prompt.
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\register-task.ps1"" -Exe ""{app}\librepatchdesktop.exe"""; Flags: runhidden waituntilterminated
 Filename: "{app}\librepatchdesktop.exe"; Description: "Start LibrePatchDesktop"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\register-task.ps1"" -Remove"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveTask"
 ; Close the running window before the files are removed.
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM librepatchdesktop.exe"; Flags: runhidden; RunOnceId: "StopApp"

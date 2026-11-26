@@ -39,9 +39,10 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	// Installers usually need administrator rights: ask once at start (UAC), then carry on.
+	// Installers usually need administrator rights. An installed copy has a scheduled task that runs it
+	// elevated without a prompt; otherwise (portable exe) ask with UAC.
 	if !*fake && (flag.NArg() == 0 || flag.Arg(0) == "gui" || flag.Arg(0) == "update") && !elevate.IsAdmin() {
-		if elevate.Relaunch() == nil {
+		if elevate.RunTask("LibrePatchDesktop") == nil || elevate.Relaunch() == nil {
 			return
 		}
 		fmt.Fprintln(os.Stderr, "continuing without administrator rights: some updates may fail")
