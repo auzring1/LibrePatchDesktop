@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/auzring1/librepatchdesktop/internal/catalog"
+	"github.com/auzring1/librepatchdesktop/internal/elevate"
 	"github.com/auzring1/librepatchdesktop/internal/inventory"
 	"github.com/auzring1/librepatchdesktop/internal/updater"
 )
@@ -37,6 +38,13 @@ func main() {
 	if flag.NArg() > 1 {
 		flag.Usage()
 		os.Exit(2)
+	}
+	// Installers usually need administrator rights: ask once at start (UAC), then carry on.
+	if !*fake && (flag.NArg() == 0 || flag.Arg(0) == "gui" || flag.Arg(0) == "update") && !elevate.IsAdmin() {
+		if elevate.Relaunch() == nil {
+			return
+		}
+		fmt.Fprintln(os.Stderr, "continuing without administrator rights: some updates may fail")
 	}
 	if flag.NArg() == 0 || flag.Arg(0) == "gui" {
 		var sc inventory.Scanner = inventory.NewScanner()
