@@ -5,10 +5,13 @@ package window
 
 import "errors"
 
-// Run is not available off Windows.
-func Run(url, title, theme string) error {
+// Start is not available off Windows.
+func Start(url, title, theme string, hidden bool, keep func() bool) error {
 	return errors.New("native window is only available on Windows")
 }
+
+// Show does nothing off Windows.
+func Show() {}
 
 // SetTheme does nothing off Windows.
 func SetTheme(string) {}

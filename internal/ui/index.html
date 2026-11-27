@@ -301,4 +301,6 @@ $("diag").onclick=async()=>{const r=await fetch("/api/diagnostics",{headers:H});
 api("/api/info").then(d=>{$("s-os").textContent=d.info.os;$("s-host").textContent=d.info.hostname;$("s-cache").textContent=d.info.cache;$("ver").textContent=d.version;
   $("set-theme").value=d.settings.theme;$("set-view").value=d.settings.view;applyTheme(d.settings.theme);setView(d.settings.view);fillSchedule(d.settings,d.nextRun);$("set-start").disabled=!d.canStartup;if(!d.settings.askedSchedule)$("ask").classList.add("on")});
 setInterval(load,1000);api("/api/refresh","POST").then(load);
+// tell the native window the first frame is ready so it can appear (it starts hidden to avoid a blank flash)
+setTimeout(()=>{try{window.lpdReady&&window.lpdReady()}catch(e){}},0);
 </script></body></html>

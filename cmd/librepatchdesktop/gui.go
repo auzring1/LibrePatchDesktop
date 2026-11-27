@@ -142,33 +142,19 @@ func runGUI(b ui.Backend, background bool) error {
 	go http.Serve(ln, s.Handler())
 	go s.RunScheduler(context.Background())
 
-	openReq := make(chan struct{}, 1)
-	trayOK := tray.Start(func() {
-		select {
-		case openReq <- struct{}{}:
-		default:
-		}
-	}, func() { os.Exit(0) })
-
+	trayOK := tray.Start(window.Show, func() { os.Exit(0) })
 	if background && !trayOK {
 		background = false // nothing would show the app, so open the window after all
 	}
-	for {
-		if background {
-			<-openReq
-			background = false
-		}
-		if err := window.Run(url, "LibrePatchDesktop", s.Settings.Get().Theme); err != nil {
-			fmt.Fprintln(os.Stderr, "no native window:", err)
-			fmt.Println("LibrePatchDesktop is running at", url)
-			openBrowser(url)
-			select {} // keep serving until Quit
-		}
-		if !trayOK || !s.Settings.Get().CloseToTray {
-			return nil
-		}
-		background = true // window closed: wait in the tray until it is opened again
+	// The window is created once and only hidden when closed to the tray, so opening it again is instant.
+	keep := func() bool { return trayOK && s.Settings.Get().CloseToTray }
+	if err := window.Start(url, "LibrePatchDesktop", s.Settings.Get().Theme, background, keep); err != nil {
+		fmt.Fprintln(os.Stderr, "no native window:", err)
+		fmt.Println("LibrePatchDesktop is running at", url)
+		openBrowser(url)
+		select {} // keep serving until Quit
 	}
+	return nil
 }
 
 func openBrowser(url string) {

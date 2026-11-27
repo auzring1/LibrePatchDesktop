@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"sync"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/jchv/go-webview2"
@@ -109,23 +110,59 @@ func dpiScale() uint {
 	return 96
 }
 
-// Run opens url in its own window and returns when the window is closed. theme is "system", "dark" or "light".
-// It returns an error, without opening anything, if the WebView2 runtime cannot be started.
-func Run(url, title, theme string) error {
+// Show brings the window to the front, restoring it if it was hidden in the tray or minimised.
+// It is safe to call from any goroutine.
+func Show() {
+	mu.Lock()
+	h := hwnd
+	mu.Unlock()
+	if h == 0 {
+		return
+	}
+	cmd := uintptr(5) // SW_SHOW
+	if r, _, _ := user32.NewProc("IsIconic").Call(h); r != 0 {
+		cmd = 9 // SW_RESTORE, only for a minimised window so a maximised one stays maximised
+	}
+	user32.NewProc("ShowWindow").Call(h, cmd)
+	user32.NewProc("SetForegroundWindow").Call(h)
+}
+
+// Start creates the window and returns when it is really closed. The WebView stays alive while the window is
+// hidden, so Show makes it appear instantly. If hidden is true the window stays out of sight until Show is
+// called. keep is asked when the user closes the window: when it returns true the window is only hidden.
+// theme is "system", "dark" or "light". It returns an error, without opening anything, if the WebView2 runtime
+// cannot be started.
+func Start(url, title, theme string, hidden bool, keep func() bool) error {
 	runtime.LockOSThread()
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		dir = os.TempDir()
 	}
 	dpi := dpiScale()
+	// The page background before the first paint: the same colour as the page, so no white flash.
+	bg, colorref := "FF0C1216", uint32(0x16120C)
+	if !isDark(theme) {
+		bg, colorref = "FFF2F6F7", 0xF7F6F2
+	}
+	os.Setenv("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", bg)
+
 	w := webview2.NewWithOptions(webview2.WebViewOptions{
 		AutoFocus: true,
 		DataPath:  filepath.Join(dir, "LibrePatchDesktop", "webview"),
 		WindowOptions: webview2.WindowOptions{
-			Title:  title,
-			Width:  1100 * dpi / 96,
-			Height: 760 * dpi / 96,
-			Center: true,
+			Title:      title,
+			Width:      1100 * dpi / 96,
+			Height:     760 * dpi / 96,
+			Center:     true,
+			Hidden:     true,
+			Background: colorref,
+			OnClose: func() bool {
+				if keep != nil && keep() {
+					user32.NewProc("ShowWindow").Call(hwndNow(), 0) // SW_HIDE
+					return true
+				}
+				return false
+			},
 		},
 	})
 	if w == nil {
@@ -143,7 +180,27 @@ func Run(url, title, theme string) error {
 	}()
 	SetTheme(theme)
 	setIcon(h)
+
+	shown := hidden // a hidden start waits for Show
+	reveal := func() {
+		if !shown {
+			shown = true
+			user32.NewProc("ShowWindow").Call(h, 5) // SW_SHOW
+			user32.NewProc("SetForegroundWindow").Call(h)
+		}
+	}
+	// The page calls this once it has painted its first frame; the timer is a safety net.
+	_ = w.Bind("lpdReady", func() { reveal() })
+	if !hidden {
+		time.AfterFunc(4*time.Second, func() { w.Dispatch(reveal) })
+	}
 	w.Navigate(url)
 	w.Run()
 	return nil
+}
+
+func hwndNow() uintptr {
+	mu.Lock()
+	defer mu.Unlock()
+	return hwnd
 }
