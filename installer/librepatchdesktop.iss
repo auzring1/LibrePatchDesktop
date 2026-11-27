@@ -21,7 +21,8 @@ OutputBaseFilename=LibrePatchDesktop-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-UninstallDisplayIcon={app}\librepatchdesktop.exe
+SetupIconFile=librepatchdesktop.ico
+UninstallDisplayIcon={app}\librepatchdesktop.ico
 CloseApplications=yes
 LicenseFile=..\LICENSE
 
@@ -31,10 +32,11 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 [Files]
 Source: "..\dist\librepatchdesktop.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "register-task.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "librepatchdesktop.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\LibrePatchDesktop"; Filename: "{app}\librepatchdesktop.exe"
-Name: "{autodesktop}\LibrePatchDesktop"; Filename: "{app}\librepatchdesktop.exe"; Tasks: desktopicon
+Name: "{group}\LibrePatchDesktop"; Filename: "{app}\librepatchdesktop.exe"; IconFilename: "{app}\librepatchdesktop.ico"
+Name: "{autodesktop}\LibrePatchDesktop"; Filename: "{app}\librepatchdesktop.exe"; IconFilename: "{app}\librepatchdesktop.ico"; Tasks: desktopicon
 
 [Run]
 ; One UAC prompt happens when this installer starts. The task lets the app start elevated afterwards with no prompt.

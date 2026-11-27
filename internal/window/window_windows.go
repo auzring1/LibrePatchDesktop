@@ -89,7 +89,7 @@ func SetTheme(theme string) {
 }
 
 func setIcon(h uintptr) {
-	ico := appicon.ICO()[22:] // the PNG inside
+	ico := appicon.PNG()
 	create := user32.NewProc("CreateIconFromResourceEx")
 	hicon, _, _ := create.Call(uintptr(unsafe.Pointer(&ico[0])), uintptr(len(ico)), 1, 0x00030000, 32, 32, 0)
 	if hicon == 0 {
