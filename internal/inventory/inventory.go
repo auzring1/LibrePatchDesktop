@@ -15,6 +15,10 @@ type App struct {
 	Scope     string `json:"scope"` // "machine" or "user"
 	// UninstallKey is the registry key name, useful to tell duplicates apart.
 	UninstallKey string `json:"uninstallKey,omitempty"`
+	// UninstallString and QuietUninstallString are the registry's commands to remove the program.
+	UninstallString      string `json:"-"`
+	QuietUninstallString string `json:"-"`
+	WindowsInstaller     bool   `json:"-"` // registered by an MSI package
 }
 
 // Scanner lists installed applications.

@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"sort"
@@ -43,6 +44,8 @@ type Server struct {
 	Settings *settings.Store
 	// SetStartup creates or removes the "start with Windows" entry (nil where unsupported).
 	SetStartup func(enabled bool) error
+	Log        *log.Logger // nil discards
+	LogDir     string
 	Info       sysinfo.Info
 	Version    string
 
@@ -116,6 +119,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/settings", s.handleSettings)
 	mux.HandleFunc("POST /api/skip", s.handleSkip)
 	mux.HandleFunc("POST /api/startup", s.handleStartup)
+	s.routesMore(mux)
 	mux.HandleFunc("POST /api/quit", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]bool{"ok": true})
 		if s.Quit != nil {
@@ -348,9 +352,11 @@ func (s *Server) startUpdate(want map[string]bool, auto bool) (int, error) {
 			s.set(key(it), "installing")
 			if err := s.b.Install(context.Background(), it); err != nil {
 				s.set(key(it), "failed: "+err.Error())
+				s.logf("update %s failed: %v", it.App.Name, err)
 				failed++
 			} else {
 				s.set(key(it), "done")
+				s.logf("updated %s to %s", it.App.Name, it.Entry.Version)
 			}
 			s.mu.Lock()
 			s.done++
@@ -361,6 +367,7 @@ func (s *Server) startUpdate(want map[string]bool, auto bool) (int, error) {
 		s.mu.Unlock()
 		if auto {
 			s.setResult(fmt.Sprintf("Updated %d of %d apps", len(todo)-failed, len(todo)))
+			s.logf("scheduled run: updated %d of %d apps", len(todo)-failed, len(todo))
 		}
 	}()
 	return len(todo), nil

@@ -14,3 +14,12 @@ func System32(parts ...string) string {
 	}
 	return strings.TrimRight(root, `\`) + `\System32\` + strings.Join(parts, `\`)
 }
+
+// Windows returns %SystemRoot% joined with parts, for programs that live outside System32 (explorer.exe).
+func Windows(parts ...string) string {
+	root := os.Getenv("SystemRoot")
+	if root == "" {
+		root = `C:\Windows`
+	}
+	return strings.TrimRight(root, `\`) + `\` + strings.Join(parts, `\`)
+}

@@ -68,13 +68,17 @@ h2{margin:0 0 16px}h3{margin:22px 0 8px;font-size:14px;color:var(--mut);text-tra
 .dlg h3{margin:0 0 10px;color:var(--fg);text-transform:none;font-size:16px;letter-spacing:0}
 .fld{display:flex;gap:10px;margin:12px 0}.fld label{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin-bottom:4px}
 .btns{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:14px}.btns label{margin-right:auto;font-size:13px;color:var(--mut)}
+.urow{display:grid;grid-template-columns:1fr 130px 180px 150px;gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line)}
+.urow:hover{background:var(--card)}.urow .n{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.srow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.srow .c{font-size:12px;color:var(--mut);word-break:break-all}
+.btn.danger{background:var(--red);color:#fff}
 .msg{color:var(--mut);padding:30px;text-align:center}
 .err{color:var(--red)}
 </style></head><body><div class="app">
 <nav class="side">
 <button class="nav on" data-p="apps"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>Apps</button>
-<button class="nav" disabled title="Coming in a later version"><svg viewBox="0 0 24 24"><path d="M5 19c0-6 4-12 14-14-2 10-8 14-14 14zM9 15l-4 4"/></svg>Startup</button>
-<button class="nav" disabled title="Coming in a later version"><svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"/></svg>Uninstaller</button>
+<button class="nav" data-p="startup"><svg viewBox="0 0 24 24"><path d="M5 19c0-6 4-12 14-14-2 10-8 14-14 14zM9 15l-4 4"/></svg>Startup</button>
+<button class="nav" data-p="uninstall"><svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"/></svg>Uninstaller</button>
 <button class="nav" data-p="scheduler"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Scheduler</button>
 <button class="nav" data-p="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Settings</button>
 <div class="spacer"></div>
@@ -84,8 +88,8 @@ h2{margin:0 0 16px}h3{margin:22px 0 8px;font-size:14px;color:var(--mut);text-tra
 <section class="page on" id="p-apps">
  <div class="apps">
   <div class="top">
-   <button class="tab on">My Apps <span class="count" id="cnt">0</span></button>
-   <button class="tab" disabled>App Library <span class="soon">soon</span></button>
+   <button class="tab on" id="tab-my">My Apps <span class="count" id="cnt">0</span></button>
+   <button class="tab" id="tab-lib">App Library</button>
    <div class="tools">
     <select id="flt"><option value="all">All apps</option><option value="outdated">Outdated</option><option value="current">Up to date</option><option value="skipped">Skipped</option></select>
     <div class="seg" id="views">
@@ -97,6 +101,7 @@ h2{margin:0 0 16px}h3{margin:22px 0 8px;font-size:14px;color:var(--mut);text-tra
    </div>
   </div>
   <div class="scroll" id="cards"></div>
+  <div class="scroll" id="lib" style="display:none"></div>
  </div>
  <aside class="summary">
   <div class="box">
@@ -111,6 +116,17 @@ h2{margin:0 0 16px}h3{margin:22px 0 8px;font-size:14px;color:var(--mut);text-tra
   <div class="box"><div class="small">Cache location</div><div class="small" id="s-cache"></div></div>
  </aside>
 </section>
+<section class="page" id="p-uninstall"><div class="pad" style="max-width:none">
+ <h2>Uninstaller</h2>
+ <div class="fld" style="align-items:center"><input type="search" id="un-q" placeholder="Search installed programs" style="width:300px"><button class="btn ghost" id="un-csv">Export list (CSV)</button><span class="small" id="un-msg"></span></div>
+ <div id="un-list"></div>
+ <p class="small">Programs installed for one user only are listed but must be removed from Windows Settings &gt; Apps.</p>
+</div></section>
+<section class="page" id="p-startup"><div class="pad">
+ <h2>Startup</h2>
+ <p class="small">Programs that start when you sign in. Turning one off does not uninstall it (same as Task Manager's Startup tab).</p>
+ <div id="st-list"></div>
+</div></section>
 <section class="page" id="p-scheduler"><div class="pad">
  <h2>Scheduler</h2>
  <div class="set"><div>Update my apps automatically<span class="d">Checks for updates at the chosen time and installs them silently. Skipped apps are left out.</span></div><input type="checkbox" id="sc-on"></div>
@@ -137,9 +153,15 @@ h2{margin:0 0 16px}h3{margin:22px 0 8px;font-size:14px;color:var(--mut);text-tra
  <p><strong>LibrePatchDesktop</strong> <span id="ver"></span></p>
  <p class="small">Free, open source application updater. Applications only; Windows itself is updated in Settings &gt; Windows Update.</p>
  <p class="small">https://github.com/auzring1/LibrePatchDesktop</p>
+ <h3>Updates</h3>
+ <p><button class="btn ghost" id="chk">Check for updates</button> <span class="small" id="chk-msg"></span></p>
+ <p><button class="btn" id="chk-go" style="display:none">Download and install</button></p>
+ <h3>Support</h3>
+ <p><button class="btn ghost" id="logs">Open logs folder</button> <button class="btn ghost" id="diag">Save diagnostic zip</button></p>
  <p><button class="btn ghost" id="quit">Quit LibrePatchDesktop</button></p>
 </div></section>
 </main></div>
+<div class="modal" id="confirm"><div class="dlg"><h3>Uninstall <span id="cf-name"></span>?</h3><p class="small">The program's own uninstaller runs. Some show their own window.</p><div class="btns"><button class="btn ghost" id="cf-no">Cancel</button><button class="btn danger" id="cf-yes">Uninstall</button></div></div></div>
 <div class="modal" id="ask"><div class="dlg"><h3>Keep your apps up to date automatically?</h3>
 <p class="small">LibrePatchDesktop can check for updates and install them in the background at a time you choose. You can change this later in the Scheduler tab.</p>
 <div class="fld"><div><label>Day</label><select id="ask-day"><option value="-1">Every day</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option></select></div>
@@ -204,7 +226,75 @@ $("set-theme").onchange=save;$("set-view").onchange=()=>{setView($("set-view").v
 $("flt").onchange=()=>{filter=$("flt").value;render()};$("q").oninput=()=>{query=$("q").value.trim().toLowerCase();render()};
 $("start").onclick=()=>run([]);$("rescan").onclick=async()=>{await api("/api/refresh","POST");load()};
 $("quit").onclick=async()=>{try{await api("/api/quit","POST")}catch(e){}document.body.textContent="LibrePatchDesktop has closed. You can close this tab."};
+for(const n of document.querySelectorAll(".nav[data-p]"))n.addEventListener("click",()=>{if(n.dataset.p==="uninstall")loadUn();if(n.dataset.p==="startup")loadSt()});
 for(const n of document.querySelectorAll(".nav[data-p]"))n.onclick=()=>{for(const x of document.querySelectorAll(".nav"))x.classList.toggle("on",x===n);for(const p of document.querySelectorAll(".page"))p.classList.toggle("on",p.id==="p-"+n.dataset.p)};
+
+// ---- App Library ----
+let mode="my",libTimer=null;
+function setMode(m){mode=m;$("tab-my").classList.toggle("on",m==="my");$("tab-lib").classList.toggle("on",m==="lib");
+  $("cards").style.display=m==="my"?"":"none";$("lib").style.display=m==="lib"?"":"none";$("flt").style.display=$("views").style.display=m==="my"?"":"none";
+  $("q").placeholder=m==="my"?"Search apps":"Search the library";$("q").value="";query="";if(m==="lib")loadLib();else render()}
+$("tab-my").onclick=()=>setMode("my");$("tab-lib").onclick=()=>setMode("lib");
+async function loadLib(){
+  const root=$("lib");let d;
+  try{d=await api("/api/library?q="+encodeURIComponent($("q").value.trim()))}catch(e){root.textContent="";root.append(el("div","msg err","The library is not available: "+e.message));return}
+  root.textContent="";
+  if(!d.items.length){root.append(el("div","msg","Nothing found. Try another name."));return}
+  root.append(el("div","group",($("q").value.trim()?"Results":"Popular apps")+" ("+d.items.length+")"));
+  const g=el("div","grid "+(view==="list"?"list":"grid"));
+  for(const i of d.items){
+    const c=el("div","card");c.title=i.id;c.append(el("div","name",i.name));
+    const av=el("div","av",(i.name[0]||"?").toUpperCase());av.style.background=colorOf(i.name);c.append(av);
+    c.append(el("span","badge "+(i.installed||i.state==="done"?"b-current":"b-skipped"),i.installed||i.state==="done"?"Installed":"Not installed"));
+    const v=el("div","ver");v.append(el("span","",i.version));c.append(v);
+    const a=el("div","acts");
+    if(i.state==="installing")a.append(el("span","st run","Installing…"));
+    else if(i.state&&i.state.startsWith("failed"))a.append(el("span","st bad",i.state));
+    else if(!i.installed&&i.state!=="done"){const b=el("button","btn","Install");b.disabled=d.busy;b.onclick=async()=>{try{await api("/api/library/install","POST",{id:i.id})}catch(e){}loadLib()};a.append(b)}
+    c.append(a);g.append(c)}
+  root.append(g)}
+$("q").addEventListener("input",()=>{if(mode==="lib"){clearTimeout(libTimer);libTimer=setTimeout(loadLib,300)}});
+setInterval(()=>{if(mode==="lib"&&D.busy)loadLib()},1500);
+// ---- Uninstaller ----
+let UN=[];
+async function loadUn(){
+  try{const d=await api("/api/uninstall");UN=d.rows;$("un-msg").textContent=d.loading?"Scanning…":d.busy?"Working…":""}catch(e){$("un-list").textContent=e.message;return}
+  renderUn()}
+function renderUn(){
+  const q=$("un-q").value.trim().toLowerCase(),root=$("un-list");root.textContent="";
+  for(const r of UN.filter(r=>!q||r.name.toLowerCase().includes(q))){
+    const row=el("div","urow");row.append(el("div","n",r.name),el("div","small",r.version),el("div","small",r.publisher));
+    const a=el("div","");
+    if(r.state==="removing")a.append(el("span","st run","Removing…"));
+    else if(r.state==="done")a.append(el("span","st ok","Removed ✓"));
+    else if(r.state)a.append(el("span","st bad",r.state));
+    else if(r.scope==="machine"){const b=el("button","btn ghost","Uninstall");b.onclick=()=>confirmUn(r);a.append(b)}
+    else a.append(el("span","small","Windows Settings"));
+    row.append(a);root.append(row)}}
+let pendingUn=null;
+function confirmUn(r){pendingUn=r;$("cf-name").textContent=r.name;$("confirm").classList.add("on")}
+$("cf-no").onclick=()=>$("confirm").classList.remove("on");
+$("cf-yes").onclick=async()=>{$("confirm").classList.remove("on");try{await api("/api/uninstall","POST",{key:pendingUn.key})}catch(e){$("un-msg").textContent=e.message}loadUn()};
+$("un-q").oninput=renderUn;
+$("un-csv").onclick=()=>{const q=s=>'"'+String(s||"").replace(/"/g,'""')+'"';const t=["Name,Version,Publisher"].concat(UN.map(r=>[q(r.name),q(r.version),q(r.publisher)].join(","))).join("\r\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([t],{type:"text/csv"}));a.download="installed-programs.csv";a.click()};
+// ---- Startup ----
+async function loadSt(){
+  const root=$("st-list");let d;
+  try{d=await api("/api/startups")}catch(e){root.textContent=e.message;return}
+  root.textContent="";if(!d.entries.length)root.append(el("div","msg","No startup programs found."));
+  for(const e of d.entries){
+    const row=el("div","srow"),l=el("div","");l.append(el("div","name",e.name),el("div","c",e.location+" - "+e.command));
+    const cb=document.createElement("input");cb.type="checkbox";cb.checked=e.enabled;
+    cb.onchange=async()=>{try{await api("/api/startups","POST",{id:e.id,on:cb.checked})}catch(x){cb.checked=!cb.checked;alert(x.message)}};
+    row.append(l,cb);root.append(row)}}
+// ---- About ----
+$("chk").onclick=async()=>{$("chk-msg").textContent="Checking…";$("chk-go").style.display="none";
+  try{const d=await api("/api/release");$("chk-msg").textContent=d.newer?"Version "+d.latest+" is available (you have "+d.current+").":"You have the newest version ("+d.current+").";$("chk-go").style.display=d.newer?"":"none"}catch(e){$("chk-msg").textContent="Could not check: "+e.message}};
+$("chk-go").onclick=async()=>{$("chk-msg").textContent="Downloading… the app will close and the new version will start.";try{await api("/api/release/install","POST")}catch(e){$("chk-msg").textContent="Failed: "+e.message}};
+$("logs").onclick=()=>api("/api/openlogs","POST").catch(e=>{});
+$("diag").onclick=async()=>{const r=await fetch("/api/diagnostics",{headers:H});const a=document.createElement("a");a.href=URL.createObjectURL(await r.blob());a.download="LibrePatchDesktop-diagnostics.zip";a.click()};
+
 api("/api/info").then(d=>{$("s-os").textContent=d.info.os;$("s-host").textContent=d.info.hostname;$("s-cache").textContent=d.info.cache;$("ver").textContent=d.version;
   $("set-theme").value=d.settings.theme;$("set-view").value=d.settings.view;applyTheme(d.settings.theme);setView(d.settings.view);fillSchedule(d.settings,d.nextRun);$("set-start").disabled=!d.canStartup;if(!d.settings.askedSchedule)$("ask").classList.add("on")});
 setInterval(load,1000);api("/api/refresh","POST").then(load);

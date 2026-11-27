@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/auzring1/librepatchdesktop/internal/catalog"
@@ -105,4 +106,36 @@ func downloadIndex(ctx context.Context, client *http.Client, dest string) error 
 		return err
 	}
 	return os.Rename(tmp, dest)
+}
+
+// featured are well known apps shown in the App Library before the user searches (kept only if the index has them).
+var featured = []string{
+	"Mozilla.Firefox", "Google.Chrome", "Brave.Brave", "VideoLAN.VLC", "7zip.7zip", "Notepad++.Notepad++",
+	"Microsoft.VisualStudioCode", "Git.Git", "OpenJS.NodeJS.LTS", "Discord.Discord", "Spotify.Spotify", "Valve.Steam",
+	"Zoom.Zoom", "Audacity.Audacity", "OBSProject.OBSStudio", "qBittorrent.qBittorrent", "Microsoft.PowerToys",
+	"Telegram.TelegramDesktop", "Dropbox.Dropbox", "ShareX.ShareX", "Bitwarden.Bitwarden", "KeePassXCTeam.KeePassXC",
+	"Inkscape.Inkscape", "GIMP.GIMP.3", "dotPDN.PaintDotNet", "Rufus.Rufus", "WinSCP.WinSCP", "PuTTY.PuTTY",
+}
+
+// Library returns packages matching q, or the featured apps when q is empty.
+func (p *Provider) Library(q string, limit int) []Package {
+	if strings.TrimSpace(q) != "" {
+		return p.Matcher.Search(q, limit)
+	}
+	var out []Package
+	for _, id := range featured {
+		if pkg, ok := p.Matcher.Package(id); ok {
+			out = append(out, pkg)
+		}
+	}
+	return out
+}
+
+// Entry is the catalog entry for installing a package at its newest version.
+func (p *Provider) Entry(id string) (catalog.Entry, bool) {
+	pkg, ok := p.Matcher.Package(id)
+	if !ok {
+		return catalog.Entry{}, false
+	}
+	return catalog.Entry{Source: "winget", ID: pkg.ID, Name: pkg.Name, Version: pkg.LatestVersion}, true
 }

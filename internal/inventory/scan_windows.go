@@ -42,6 +42,11 @@ func (regScanner) Scan() ([]App, error) {
 			app.Name, _, _ = sk.GetStringValue("DisplayName")
 			app.Version, _, _ = sk.GetStringValue("DisplayVersion")
 			app.Publisher, _, _ = sk.GetStringValue("Publisher")
+			app.UninstallString, _, _ = sk.GetStringValue("UninstallString")
+			app.QuietUninstallString, _, _ = sk.GetStringValue("QuietUninstallString")
+			if wi, _, err := sk.GetIntegerValue("WindowsInstaller"); err == nil && wi == 1 {
+				app.WindowsInstaller = true
+			}
 			// Skip Windows components and update entries: this app does not manage them.
 			if sc, _, err := sk.GetIntegerValue("SystemComponent"); err == nil && sc == 1 {
 				sk.Close()
