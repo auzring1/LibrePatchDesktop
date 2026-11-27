@@ -4,6 +4,7 @@
 package elevate
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -36,4 +37,30 @@ func RunTask(name string) error {
 	cmd := exec.Command(sysdir.System32("schtasks.exe"), "/Run", "/TN", name)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000} // CREATE_NO_WINDOW
 	return cmd.Run()
+}
+
+// SetStartup creates or removes a scheduled task that starts the app hidden in the tray (--background) when
+// the user logs on, with the highest privileges. Needs an elevated process.
+func SetStartup(enabled bool) error {
+	const name = "LibrePatchDesktop Startup"
+	script := "Unregister-ScheduledTask -TaskName '" + name + "' -Confirm:$false -ErrorAction SilentlyContinue"
+	if enabled {
+		exe, err := os.Executable()
+		if err != nil {
+			return err
+		}
+		script = "$u=[System.Security.Principal.WindowsIdentity]::GetCurrent().Name;" +
+			"$a=New-ScheduledTaskAction -Execute '" + strings.ReplaceAll(exe, "'", "''") + "' -Argument '--background';" +
+			"$t=New-ScheduledTaskTrigger -AtLogOn -User $u;" +
+			"$p=New-ScheduledTaskPrincipal -UserId $u -LogonType Interactive -RunLevel Highest;" +
+			"$s=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew;" +
+			"Register-ScheduledTask -TaskName '" + name + "' -Action $a -Trigger $t -Principal $p -Settings $s -Force | Out-Null"
+	}
+	cmd := exec.Command(sysdir.System32("WindowsPowerShell", "v1.0", "powershell.exe"), "-NoProfile", "-NonInteractive",
+		"-ExecutionPolicy", "Bypass", "-Command", script)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }

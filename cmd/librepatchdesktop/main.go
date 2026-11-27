@@ -35,6 +35,7 @@ Flags:`
 
 func main() {
 	catPath := flag.String("catalog", "", "optional extra catalog JSON file, consulted before winget")
+	background := flag.Bool("background", false, "start hidden in the tray (used by start with Windows)")
 	demo := flag.Bool("demo", false, "open the window with made-up apps (nothing is installed)")
 	noWinget := flag.Bool("no-winget", false, "do not use the winget community index")
 	fake := flag.Bool("fake", false, "use a built-in sample app list instead of the Windows registry")
@@ -63,7 +64,7 @@ func main() {
 			}
 			b = &backend{scanner: sc, catPath: *catPath, noWinget: *noWinget}
 		}
-		if err := runGUI(b); err != nil {
+		if err := runGUI(b, *background); err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(1)
 		}

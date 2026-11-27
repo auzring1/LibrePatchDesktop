@@ -9,13 +9,17 @@ import (
 	_ "embed"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/auzring1/librepatchdesktop/internal/inventory"
+	"github.com/auzring1/librepatchdesktop/internal/schedule"
 	"github.com/auzring1/librepatchdesktop/internal/settings"
 	"github.com/auzring1/librepatchdesktop/internal/sysinfo"
 	"github.com/auzring1/librepatchdesktop/internal/updater"
@@ -37,8 +41,10 @@ type Server struct {
 	// Quit, if set, is called when the page's Quit button is pressed.
 	Quit     func()
 	Settings *settings.Store
-	Info     sysinfo.Info
-	Version  string
+	// SetStartup creates or removes the "start with Windows" entry (nil where unsupported).
+	SetStartup func(enabled bool) error
+	Info       sysinfo.Info
+	Version    string
 
 	mu      sync.Mutex
 	items   []updater.Item
@@ -99,10 +105,17 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/refresh", s.handleRefresh)
 	mux.HandleFunc("POST /api/update", s.handleUpdate)
 	mux.HandleFunc("GET /api/info", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, map[string]any{"info": s.Info, "version": s.Version, "settings": s.Settings.Get()})
+		next := ""
+		if d := s.Settings.Get(); d.Schedule.Enabled {
+			if t, ok := d.Schedule.Next(time.Now()); ok {
+				next = t.Format(time.RFC3339)
+			}
+		}
+		writeJSON(w, map[string]any{"info": s.Info, "version": s.Version, "settings": s.Settings.Get(), "nextRun": next, "canStartup": s.SetStartup != nil})
 	})
 	mux.HandleFunc("POST /api/settings", s.handleSettings)
 	mux.HandleFunc("POST /api/skip", s.handleSkip)
+	mux.HandleFunc("POST /api/startup", s.handleStartup)
 	mux.HandleFunc("POST /api/quit", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]bool{"ok": true})
 		if s.Quit != nil {
@@ -166,16 +179,67 @@ func (s *Server) handleApps(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, out)
 }
 
+// handleSettings changes the saved choices. Only the fields present in the request change.
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
-	var req struct{ Theme, View string }
+	var req struct {
+		Theme         *string            `json:"theme"`
+		View          *string            `json:"view"`
+		CloseToTray   *bool              `json:"closeToTray"`
+		AskedSchedule *bool              `json:"askedSchedule"`
+		Schedule      *schedule.Schedule `json:"schedule"`
+	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&req); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	if err := s.Settings.SetLook(req.Theme, req.View); err != nil {
+	if req.Schedule != nil {
+		if err := req.Schedule.Valid(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	err := s.Settings.Update(func(d *settings.Data) {
+		if req.Theme != nil {
+			d.Theme = *req.Theme
+		}
+		if req.View != nil {
+			d.View = *req.View
+		}
+		if req.CloseToTray != nil {
+			d.CloseToTray = *req.CloseToTray
+		}
+		if req.AskedSchedule != nil {
+			d.AskedSchedule = *req.AskedSchedule
+		}
+		if req.Schedule != nil {
+			d.Schedule = *req.Schedule
+		}
+	})
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	writeJSON(w, s.Settings.Get())
+}
+
+// handleStartup turns "start with Windows" on or off through the injected SetStartup.
+func (s *Server) handleStartup(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if s.SetStartup == nil {
+		http.Error(w, "not available here", http.StatusNotImplemented)
+		return
+	}
+	if err := s.SetStartup(req.Enabled); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.Settings.Update(func(d *settings.Data) { d.StartWithWindows = req.Enabled })
 	writeJSON(w, s.Settings.Get())
 }
 
@@ -235,7 +299,7 @@ func (s *Server) handleRefresh(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, map[string]bool{"ok": true})
 }
 
-// handleUpdate installs the listed keys one after another; an empty list means every outdated app.
+// handleUpdate installs the listed keys one after another; an empty list means every outdated app that is not skipped.
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Keys []string `json:"keys"`
@@ -248,11 +312,21 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	for _, k := range req.Keys {
 		want[k] = true
 	}
+	n, err := s.startUpdate(want, false)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
+	writeJSON(w, map[string]int{"queued": n})
+}
+
+// startUpdate queues the wanted apps (all non-skipped outdated ones when want is empty) and installs them in the
+// background. auto marks a scheduled run, whose result is written to the settings for the Scheduler page.
+func (s *Server) startUpdate(want map[string]bool, auto bool) (int, error) {
 	s.mu.Lock()
 	if s.busy || s.loading {
 		s.mu.Unlock()
-		http.Error(w, "busy", http.StatusConflict)
-		return
+		return 0, errors.New("busy")
 	}
 	var todo []updater.Item
 	for _, it := range s.items {
@@ -265,11 +339,16 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		s.busy, s.batch, s.done = true, len(todo), 0
 	}
 	s.mu.Unlock()
+	if len(todo) == 0 {
+		return 0, nil
+	}
 	go func() {
+		failed := 0
 		for _, it := range todo {
 			s.set(key(it), "installing")
 			if err := s.b.Install(context.Background(), it); err != nil {
 				s.set(key(it), "failed: "+err.Error())
+				failed++
 			} else {
 				s.set(key(it), "done")
 			}
@@ -280,8 +359,70 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
 		s.busy = false
 		s.mu.Unlock()
+		if auto {
+			s.setResult(fmt.Sprintf("Updated %d of %d apps", len(todo)-failed, len(todo)))
+		}
 	}()
-	writeJSON(w, map[string]int{"queued": len(todo)})
+	return len(todo), nil
+}
+
+func (s *Server) setResult(msg string) {
+	s.Settings.Update(func(d *settings.Data) { d.LastResult = msg })
+}
+
+// RunScheduler checks every 30 seconds whether the scheduled update is due, until ctx ends.
+func (s *Server) RunScheduler(ctx context.Context) {
+	t := time.NewTicker(30 * time.Second)
+	defer t.Stop()
+	s.tick(time.Now())
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-t.C:
+			s.tick(now)
+		}
+	}
+}
+
+// tick starts the scheduled run if it is due and nothing else is running.
+func (s *Server) tick(now time.Time) {
+	d := s.Settings.Get()
+	if !d.Schedule.Due(now, d.LastRun) {
+		return
+	}
+	s.mu.Lock()
+	idle := !s.busy && !s.loading
+	if idle {
+		s.loading, s.loadErr = true, ""
+	}
+	s.mu.Unlock()
+	if !idle {
+		return // try again at the next tick
+	}
+	s.Settings.Update(func(d *settings.Data) { d.LastRun, d.LastResult = now, "Running…" })
+	go func() {
+		items, err := s.b.Check(context.Background())
+		s.mu.Lock()
+		s.loading = false
+		if err == nil {
+			s.items, s.state = items, map[string]string{}
+		} else {
+			s.loadErr = err.Error()
+		}
+		s.mu.Unlock()
+		if err != nil {
+			s.setResult("Could not check for updates: " + err.Error())
+			return
+		}
+		n, err := s.startUpdate(map[string]bool{}, true)
+		switch {
+		case err != nil:
+			s.setResult("Could not start: " + err.Error())
+		case n == 0:
+			s.setResult("Everything was up to date")
+		}
+	}()
 }
 
 func (s *Server) set(k, v string) {

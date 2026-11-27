@@ -58,11 +58,16 @@ input[type=search]{width:200px}
 .link{background:none;border:0;color:var(--teal);cursor:pointer;text-decoration:underline;font:inherit}.link:disabled{opacity:.5}
 .bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin:10px 0 4px}.bar i{display:block;height:100%;background:var(--teal);width:0;transition:width .3s}
 .big{width:100%;padding:14px;font-size:16px;margin-top:8px}
-.small{font-size:12px;color:var(--mut);word-break:break-all}
+.small{font-size:12px;color:var(--mut)}#s-cache{word-break:break-all}
 .pad{padding:24px 28px;overflow:auto;flex:1;max-width:760px}
 h2{margin:0 0 16px}h3{margin:22px 0 8px;font-size:14px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
 .set{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
 .set.off{opacity:.45}.set span.d{display:block;color:var(--mut);font-size:12px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:10}.modal.on{display:flex}
+.dlg{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:22px;max-width:460px;width:90%}
+.dlg h3{margin:0 0 10px;color:var(--fg);text-transform:none;font-size:16px;letter-spacing:0}
+.fld{display:flex;gap:10px;margin:12px 0}.fld label{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin-bottom:4px}
+.btns{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:14px}.btns label{margin-right:auto;font-size:13px;color:var(--mut)}
 .msg{color:var(--mut);padding:30px;text-align:center}
 .err{color:var(--red)}
 </style></head><body><div class="app">
@@ -70,7 +75,7 @@ h2{margin:0 0 16px}h3{margin:22px 0 8px;font-size:14px;color:var(--mut);text-tra
 <button class="nav on" data-p="apps"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>Apps</button>
 <button class="nav" disabled title="Coming in a later version"><svg viewBox="0 0 24 24"><path d="M5 19c0-6 4-12 14-14-2 10-8 14-14 14zM9 15l-4 4"/></svg>Startup</button>
 <button class="nav" disabled title="Coming in a later version"><svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"/></svg>Uninstaller</button>
-<button class="nav" disabled title="Coming in a later version"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Scheduler</button>
+<button class="nav" data-p="scheduler"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Scheduler</button>
 <button class="nav" data-p="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Settings</button>
 <div class="spacer"></div>
 <button class="nav" data-p="about"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>About</button>
@@ -106,17 +111,26 @@ h2{margin:0 0 16px}h3{margin:22px 0 8px;font-size:14px;color:var(--mut);text-tra
   <div class="box"><div class="small">Cache location</div><div class="small" id="s-cache"></div></div>
  </aside>
 </section>
+<section class="page" id="p-scheduler"><div class="pad">
+ <h2>Scheduler</h2>
+ <div class="set"><div>Update my apps automatically<span class="d">Checks for updates at the chosen time and installs them silently. Skipped apps are left out.</span></div><input type="checkbox" id="sc-on"></div>
+ <div class="fld"><div><label>Day</label><select id="sc-day"><option value="-1">Every day</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option></select></div>
+ <div><label>Time</label><input type="time" id="sc-time" style="background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font:inherit"></div></div>
+ <div class="set"><div>Run when the time was missed<span class="d">If the PC was off or the app was not running at that time, update at the next opportunity.</span></div><input type="checkbox" id="sc-missed"></div>
+ <p class="small" id="sc-next"></p><p class="small" id="sc-last"></p>
+ <p class="small">The app must be running for scheduled updates. Closing the window keeps it in the tray, and "Start with Windows" in Settings starts it when you sign in.</p>
+</div></section>
 <section class="page" id="p-settings"><div class="pad">
  <h2>Settings</h2>
  <div class="set"><div>Theme<span class="d">Follow Windows, or force dark or light.</span></div><select id="set-theme"><option value="system">System</option><option value="dark">Dark</option><option value="light">Light</option></select></div>
  <div class="set"><div>Default view<span class="d">How apps are shown in My Apps.</span></div><select id="set-view"><option value="grid">Cards</option><option value="list">List</option><option value="compact">Compact</option></select></div>
+ <div class="set"><div>Start with Windows<span class="d">Starts hidden in the tray when you sign in, so scheduled updates run.</span><span class="d" id="st-err" style="color:var(--red)"></span></div><input type="checkbox" id="set-start"></div>
+ <div class="set"><div>Close to tray<span class="d">Closing the window keeps LibrePatchDesktop running in the notification area.</span></div><input type="checkbox" id="set-tray"></div>
  <div class="set"><div>Skipped apps<span class="d">Apps you chose to skip are left out of Start Updater. Unskip them from their card (filter: Skipped).</span></div></div>
  <h3>Coming in later versions</h3>
+ <div class="set off"><div>Notifications when apps are outdated</div><input type="checkbox" disabled></div>
  <div class="set off"><div>Close apps before updating</div><input type="checkbox" disabled></div>
- <div class="set off"><div>Start with Windows</div><input type="checkbox" disabled></div>
- <div class="set off"><div>Minimize / close to tray</div><input type="checkbox" disabled></div>
- <div class="set off"><div>Automatic scheduled updates</div><input type="checkbox" disabled></div>
- <div class="set off"><div>Create a restore point before updating</div><input type="checkbox" disabled></div>
+  <div class="set off"><div>Create a restore point before updating</div><input type="checkbox" disabled></div>
 </div></section>
 <section class="page" id="p-about"><div class="pad">
  <h2>About</h2>
@@ -126,6 +140,11 @@ h2{margin:0 0 16px}h3{margin:22px 0 8px;font-size:14px;color:var(--mut);text-tra
  <p><button class="btn ghost" id="quit">Quit LibrePatchDesktop</button></p>
 </div></section>
 </main></div>
+<div class="modal" id="ask"><div class="dlg"><h3>Keep your apps up to date automatically?</h3>
+<p class="small">LibrePatchDesktop can check for updates and install them in the background at a time you choose. You can change this later in the Scheduler tab.</p>
+<div class="fld"><div><label>Day</label><select id="ask-day"><option value="-1">Every day</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option></select></div>
+<div><label>Time</label><input type="time" id="ask-time" value="19:30" style="background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font:inherit"></div></div>
+<div class="btns"><label><input type="checkbox" id="ask-never"> Do not ask again</label><button class="btn ghost" id="ask-no">No</button><button class="btn" id="ask-yes">Yes</button></div></div></div>
 <script>
 const T="__TOKEN__",H={"X-Token":T,"Content-Type":"application/json"},$=id=>document.getElementById(id);
 async function api(p,m,b){const r=await fetch(p,{method:m||"GET",headers:H,body:b?JSON.stringify(b):undefined});if(!r.ok)throw new Error(await r.text());return r.json()}
@@ -169,13 +188,24 @@ async function skip(key,s){await api("/api/skip","POST",{key,skip:s});load()}
 function setView(v){view=v;for(const b of document.querySelectorAll("#views button"))b.classList.toggle("on",b.dataset.v===v);render()}
 for(const b of document.querySelectorAll("#views button"))b.onclick=()=>{setView(b.dataset.v);save()};
 function applyTheme(t){document.documentElement.dataset.theme=t}
-async function save(){const d=await api("/api/settings","POST",{theme:$("set-theme").value,view});applyTheme(d.theme)}
+async function post(b){return api("/api/settings","POST",b)}
+async function save(){const d=await post({theme:$("set-theme").value,view});applyTheme(d.theme)}
+function fillSchedule(d,next){const c=d.schedule;$("sc-on").checked=c.enabled;$("sc-day").value=String(c.weekday);$("sc-time").value=c.time;$("sc-missed").checked=c.runMissed;
+  $("sc-next").textContent=next?"Next run: "+new Date(next).toLocaleString():(c.enabled?"":"Automatic updates are off.");
+  $("sc-last").textContent=d.lastRun&&!d.lastRun.startsWith("0001")?"Last run: "+new Date(d.lastRun).toLocaleString()+" - "+d.lastResult:"";
+  $("set-tray").checked=d.closeToTray;$("set-start").checked=d.startWithWindows}
+async function saveSchedule(){const d=await post({schedule:{enabled:$("sc-on").checked,weekday:parseInt($("sc-day").value,10),time:$("sc-time").value||"19:30",runMissed:$("sc-missed").checked}});const i=await api("/api/info");fillSchedule(i.settings,i.nextRun)}
+for(const id of ["sc-on","sc-day","sc-time","sc-missed"])$(id).onchange=saveSchedule;
+$("set-tray").onchange=()=>post({closeToTray:$("set-tray").checked});
+$("set-start").onchange=async()=>{$("st-err").textContent="";try{await api("/api/startup","POST",{enabled:$("set-start").checked})}catch(e){$("set-start").checked=!$("set-start").checked;$("st-err").textContent=e.message}};
+$("ask-yes").onclick=async()=>{await post({askedSchedule:true,schedule:{enabled:true,weekday:parseInt($("ask-day").value,10),time:$("ask-time").value||"19:30",runMissed:true}});$("ask").classList.remove("on");const i=await api("/api/info");fillSchedule(i.settings,i.nextRun)};
+$("ask-no").onclick=async()=>{if($("ask-never").checked)await post({askedSchedule:true});$("ask").classList.remove("on")};
 $("set-theme").onchange=save;$("set-view").onchange=()=>{setView($("set-view").value);save()};
 $("flt").onchange=()=>{filter=$("flt").value;render()};$("q").oninput=()=>{query=$("q").value.trim().toLowerCase();render()};
 $("start").onclick=()=>run([]);$("rescan").onclick=async()=>{await api("/api/refresh","POST");load()};
 $("quit").onclick=async()=>{try{await api("/api/quit","POST")}catch(e){}document.body.textContent="LibrePatchDesktop has closed. You can close this tab."};
 for(const n of document.querySelectorAll(".nav[data-p]"))n.onclick=()=>{for(const x of document.querySelectorAll(".nav"))x.classList.toggle("on",x===n);for(const p of document.querySelectorAll(".page"))p.classList.toggle("on",p.id==="p-"+n.dataset.p)};
 api("/api/info").then(d=>{$("s-os").textContent=d.info.os;$("s-host").textContent=d.info.hostname;$("s-cache").textContent=d.info.cache;$("ver").textContent=d.version;
-  $("set-theme").value=d.settings.theme;$("set-view").value=d.settings.view;applyTheme(d.settings.theme);setView(d.settings.view)});
+  $("set-theme").value=d.settings.theme;$("set-view").value=d.settings.view;applyTheme(d.settings.theme);setView(d.settings.view);fillSchedule(d.settings,d.nextRun);$("set-start").disabled=!d.canStartup;if(!d.settings.askedSchedule)$("ask").classList.add("on")});
 setInterval(load,1000);api("/api/refresh","POST").then(load);
 </script></body></html>

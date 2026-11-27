@@ -6,6 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
+
+	"github.com/auzring1/librepatchdesktop/internal/schedule"
 )
 
 // Data is what is stored.
@@ -13,6 +16,13 @@ type Data struct {
 	Theme   string   `json:"theme"`   // "system", "dark" or "light"
 	View    string   `json:"view"`    // "grid", "list" or "compact"
 	Skipped []string `json:"skipped"` // apps the user never wants updated (winget id, or name)
+
+	Schedule         schedule.Schedule `json:"schedule"`
+	AskedSchedule    bool              `json:"askedSchedule"`    // the first-run question was answered
+	CloseToTray      bool              `json:"closeToTray"`      // closing the window keeps the app running in the tray
+	StartWithWindows bool              `json:"startWithWindows"` // mirror of the startup task, for display
+	LastRun          time.Time         `json:"lastRun"`          // when the last scheduled run started
+	LastResult       string            `json:"lastResult"`       // what it did, in plain words
 }
 
 // Store is a Data persisted to a file. A nil path keeps everything in memory only.
@@ -24,7 +34,7 @@ type Store struct {
 
 // Open loads path if it exists and fills in defaults.
 func Open(path string) *Store {
-	s := &Store{path: path, d: Data{Theme: "system", View: "grid"}}
+	s := &Store{path: path, d: Data{Theme: "system", View: "grid", Schedule: schedule.Default(), CloseToTray: true}}
 	if path != "" {
 		if b, err := os.ReadFile(path); err == nil {
 			json.Unmarshal(b, &s.d)
@@ -40,6 +50,9 @@ func (s *Store) normalize() {
 	default:
 		s.d.Theme = "system"
 	}
+	if s.d.Schedule.Valid() != nil {
+		s.d.Schedule = schedule.Default()
+	}
 	switch s.d.View {
 	case "grid", "list", "compact":
 	default:
@@ -54,6 +67,15 @@ func (s *Store) Get() Data {
 	d := s.d
 	d.Skipped = append([]string(nil), s.d.Skipped...)
 	return d
+}
+
+// Update changes any fields under the store's lock and saves.
+func (s *Store) Update(f func(d *Data)) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	f(&s.d)
+	s.normalize()
+	return s.save()
 }
 
 // SetLook changes theme and view.

@@ -11,6 +11,8 @@ import (
 
 	"github.com/auzring1/librepatchdesktop/internal/catalog"
 	"github.com/auzring1/librepatchdesktop/internal/inventory"
+	"github.com/auzring1/librepatchdesktop/internal/schedule"
+	"github.com/auzring1/librepatchdesktop/internal/settings"
 	"github.com/auzring1/librepatchdesktop/internal/updater"
 )
 
@@ -88,4 +90,43 @@ func wait(t *testing.T, cond func() bool) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatal("timed out")
+}
+
+func TestScheduledRun(t *testing.T) {
+	f := &fake{}
+	s := New(f)
+	s.Settings.Update(func(d *settings.Data) {
+		d.Schedule = schedule.Schedule{Enabled: true, Weekday: -1, Time: "00:00", RunMissed: true}
+	})
+	s.tick(time.Now())
+	wait(t, func() bool { return strings.HasPrefix(s.Settings.Get().LastResult, "Updated 1 of 1") })
+	if len(f.installed) != 1 {
+		t.Fatalf("installed %v", f.installed)
+	}
+	s.tick(time.Now()) // the same slot does not run twice
+	time.Sleep(50 * time.Millisecond)
+	if len(f.installed) != 1 {
+		t.Fatalf("ran twice: %v", f.installed)
+	}
+}
+
+func TestSettingsEndpoint(t *testing.T) {
+	s := New(&fake{})
+	h := s.Handler()
+	if w := do(h, "POST", "/api/settings", "127.0.0.1:1", s.Token, `{"schedule":{"enabled":true,"weekday":9,"time":"19:30"}}`); w.Code != 400 {
+		t.Fatalf("bad weekday should be refused: %d", w.Code)
+	}
+	if w := do(h, "POST", "/api/settings", "127.0.0.1:1", s.Token, `{"closeToTray":false,"schedule":{"enabled":true,"weekday":-1,"time":"07:00"}}`); w.Code != 200 {
+		t.Fatalf("%d %s", w.Code, w.Body)
+	}
+	if d := s.Settings.Get(); d.CloseToTray || !d.Schedule.Enabled || d.Theme != "system" {
+		t.Fatalf("%+v", d)
+	}
+	if w := do(h, "POST", "/api/startup", "127.0.0.1:1", s.Token, `{"enabled":true}`); w.Code != 501 {
+		t.Fatalf("no startup support here: %d", w.Code)
+	}
+	s.SetStartup = func(bool) error { return nil }
+	if w := do(h, "POST", "/api/startup", "127.0.0.1:1", s.Token, `{"enabled":true}`); w.Code != 200 || !s.Settings.Get().StartWithWindows {
+		t.Fatalf("%d", w.Code)
+	}
 }

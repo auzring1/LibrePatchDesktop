@@ -11,3 +11,6 @@ func Relaunch() error { return nil }
 
 // RunTask does nothing off Windows.
 func RunTask(string) error { return nil }
+
+// SetStartup does nothing off Windows.
+func SetStartup(bool) error { return nil }
