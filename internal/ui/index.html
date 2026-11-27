@@ -2,9 +2,9 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>LibrePatchDesktop</title>
 <style>
-:root{--bg:#0e1519;--side:#0a1115;--card:#151f25;--card2:#1a2830;--line:#24333b;--fg:#e8f0f3;--mut:#8ea0a9;--teal:#17b3b0;--tealh:#1fcac6;--amber:#f0a92e;--red:#ef5b5b;--green:#3ec28a;--onteal:#04201f}
-:root[data-theme=light]{--bg:#f2f6f7;--side:#e4ecee;--card:#fff;--card2:#f6fafb;--line:#d5e0e4;--fg:#14232a;--mut:#5b6e77;--teal:#0f8b8d;--tealh:#0c7274;--amber:#b87504;--red:#c0392b;--green:#1f8f5f;--onteal:#fff}
-@media(prefers-color-scheme:light){:root[data-theme=system]{--bg:#f2f6f7;--side:#e4ecee;--card:#fff;--card2:#f6fafb;--line:#d5e0e4;--fg:#14232a;--mut:#5b6e77;--teal:#0f8b8d;--tealh:#0c7274;--amber:#b87504;--red:#c0392b;--green:#1f8f5f;--onteal:#fff}}
+:root{color-scheme:dark;--bg:#0c1216;--side:#06090b;--card:#131c22;--card2:#18242c;--line:#1f2d35;--fg:#e8f0f3;--mut:#8ea0a9;--teal:#17b3b0;--tealh:#1fcac6;--amber:#f0a92e;--red:#ef5b5b;--green:#3ec28a;--onteal:#04201f}
+:root[data-theme=light]{color-scheme:light;--bg:#f2f6f7;--side:#e4ecee;--card:#fff;--card2:#f6fafb;--line:#d5e0e4;--fg:#14232a;--mut:#5b6e77;--teal:#0f8b8d;--tealh:#0c7274;--amber:#b87504;--red:#c0392b;--green:#1f8f5f;--onteal:#fff}
+@media(prefers-color-scheme:light){:root[data-theme=system]{color-scheme:light;--bg:#f2f6f7;--side:#e4ecee;--card:#fff;--card2:#f6fafb;--line:#d5e0e4;--fg:#14232a;--mut:#5b6e77;--teal:#0f8b8d;--tealh:#0c7274;--amber:#b87504;--red:#c0392b;--green:#1f8f5f;--onteal:#fff}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 "Segoe UI",system-ui,sans-serif;height:100vh;overflow:hidden}
 .app{display:grid;grid-template-columns:76px 1fr;height:100vh}
@@ -179,7 +179,7 @@ function card(r){
   c.append(el("div","name",r.name));
   const av=el("div","av",(r.name[0]||"?").toUpperCase());av.style.background=colorOf(r.name);c.append(av);
   const label={outdated:"Outdated",current:"Up to date",skipped:"Skipped",older:"Older copy"}[r.status];
-  const bd=el("span","badge b-"+r.status,r.state==="done"?"Up to date":label);c.append(bd);
+  const bd=el("span","badge b-"+(r.state==="done"?"current":r.status),r.state==="done"?"Up to date":label);c.append(bd);
   const v=el("div","ver");v.append(el("span","",r.installed));if(r.status==="outdated"||r.status==="skipped")v.append(el("span","new","→ "+r.latest));c.append(v);
   const a=el("div","acts"),st=stateText(r);
   if(st){a.append(el("span","st "+st[1],st[0]))}

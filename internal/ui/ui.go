@@ -44,7 +44,8 @@ type Server struct {
 	Settings *settings.Store
 	// SetStartup creates or removes the "start with Windows" entry (nil where unsupported).
 	SetStartup func(enabled bool) error
-	Log        *log.Logger // nil discards
+	OnTheme    func(theme string) // called when the theme setting changes (colours the title bar)
+	Log        *log.Logger        // nil discards
 	LogDir     string
 	Info       sysinfo.Info
 	Version    string
@@ -222,6 +223,9 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	if req.Theme != nil && s.OnTheme != nil {
+		s.OnTheme(s.Settings.Get().Theme)
 	}
 	writeJSON(w, s.Settings.Get())
 }

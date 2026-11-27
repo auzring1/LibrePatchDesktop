@@ -138,6 +138,7 @@ func runGUI(b ui.Backend, background bool) error {
 		s.SetStartup = elevate.SetStartup
 	}
 	s.Quit = func() { os.Exit(0) }
+	s.OnTheme = window.SetTheme
 	go http.Serve(ln, s.Handler())
 	go s.RunScheduler(context.Background())
 
@@ -157,7 +158,7 @@ func runGUI(b ui.Backend, background bool) error {
 			<-openReq
 			background = false
 		}
-		if err := window.Run(url, "LibrePatchDesktop"); err != nil {
+		if err := window.Run(url, "LibrePatchDesktop", s.Settings.Get().Theme); err != nil {
 			fmt.Fprintln(os.Stderr, "no native window:", err)
 			fmt.Println("LibrePatchDesktop is running at", url)
 			openBrowser(url)
